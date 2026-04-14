@@ -435,6 +435,65 @@ Member lookup for `/comment` applies the same group filter as `/members` — use
 
 ---
 
+---
+
+## AI Agent Mode — Planned (not yet implemented)
+
+A full conversational AI agent that lets users ask anything in plain English and have the AI query the database directly, rather than routing to fixed commands.
+
+### Architecture
+```
+User: "How many people in the Youth group haven't attended in 3 months?"
+         ↓
+INPURSUIT_WA_AI_Agent::handle()
+         ↓
+OpenAI receives message + tool definitions + system prompt (with user's groups)
+         ↓
+AI calls: get_members({ group: "Youth", ... })
+         ↓
+PHP executes query — group filter ALWAYS enforced in code
+         ↓
+Result returned to OpenAI → AI composes natural language answer
+         ↓
+WhatsApp reply
+```
+
+### Files to Create
+| File | Purpose |
+|---|---|
+| `includes/class-wa-db-tools.php` | 9 DB query tools, each enforcing group access; returns raw arrays for AI to process |
+| `includes/class-wa-ai-agent.php` | Agentic loop (max 5 iterations), system prompt, OpenAI tool-use handler |
+
+### DB Tools Planned
+| Tool | Description |
+|---|---|
+| `get_members` | Filter by group, status, gender, location, limit |
+| `get_member_details` | Full profile by name |
+| `get_member_history` | Comment + event history for a member |
+| `get_stats` | Total members/events, breakdown by status & group |
+| `get_followup_members` | Members with pending/follow-up status |
+| `get_events` | Birthdays & anniversaries this month |
+| `get_event_attendance` | Attendance stats for a named event |
+| `add_member_comment` | Save a comment (with optional category) |
+| `get_comment_categories` | List all comment categories |
+
+### Settings Change Needed
+- Add **AI Agent Mode** toggle to WP Admin → InPursuit → WhatsApp Bot
+- When ON: plain-English messages go through the agent
+- When OFF: existing AI router + keyword fallback used (current behaviour)
+
+### Group Safety
+Group access enforced in PHP inside each tool — AI cannot bypass it even if it tries.
+
+### Example Queries That Would Work
+- *"How many members are in the Youth group?"*
+- *"Who hasn't attended in 3 months?"*
+- *"Show me all female members in the Connect group"*
+- *"Which event had the best attendance this year?"*
+- *"List members with no comments recorded"*
+
+---
+
 ## Still To Do
 
 - [ ] User to create Meta Business account
@@ -442,5 +501,5 @@ Member lookup for `/comment` applies the same group filter as `/members` — use
 - [ ] Deploy plugin to live WordPress server
 - [ ] Test webhook verification with Meta dashboard
 - [ ] Test all bot commands end-to-end
-- [ ] Implement role-based data filtering in query handler
+- [ ] **Build AI Agent Mode** (see planned section above)
 - [ ] Consider adding conversation state (e.g. multi-step member lookup)
