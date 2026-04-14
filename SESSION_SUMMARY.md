@@ -157,6 +157,41 @@ https://yoursite.com/wp-json/inpursuit-wa/v1/webhook
 
 ---
 
+## Webhook Logging (Added 2026-04-14)
+
+### New File: `includes/class-wa-logger.php`
+File-based logger writing to `wp-content/uploads/inpursuit-wa-logs/webhook.log`.
+- Directory auto-created with `.htaccess` (blocks direct browser access) and `index.php`
+- Rotates at 512 KB
+- Methods: `INPURSUIT_WA_Logger::info()`, `::warning()`, `::error()`
+- `get_recent( $n )` — returns last N lines as a string
+- `clear()` — empties the log file
+
+### What Gets Logged
+
+| Event | Level |
+|---|---|
+| Webhook GET verified by Meta | INFO |
+| Webhook verification failed | WARN |
+| Incoming POST received | INFO |
+| Unexpected object type ignored | WARN |
+| Status update (delivered/read tick) | INFO |
+| Non-text message type ignored | INFO |
+| Message received (from, id, text) | INFO |
+| Unauthorised sender blocked | WARN |
+| Command handled + reply length | INFO |
+| Reply sent successfully | INFO |
+| Failed to send reply | ERROR |
+| Meta API HTTP error | ERROR |
+| Credentials not configured | ERROR |
+
+### Admin Pages
+
+- **WP Admin → InPursuit → WhatsApp Bot** — settings page now includes a "Recent Activity" section showing the last 50 log entries
+- **WP Admin → InPursuit → WhatsApp Logs** — dedicated full log viewer showing last 150 entries, auto-scrolls to newest, with a "Clear Logs" button
+
+---
+
 ## Still To Do
 
 - [ ] User to create Meta Business account
@@ -165,4 +200,3 @@ https://yoursite.com/wp-json/inpursuit-wa/v1/webhook
 - [ ] Test webhook verification with Meta dashboard
 - [ ] Test all bot commands end-to-end
 - [ ] Consider adding conversation state (e.g. multi-step member lookup)
-- [ ] Consider logging incoming queries for audit trail
