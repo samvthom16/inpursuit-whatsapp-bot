@@ -26,40 +26,20 @@ class INPURSUIT_WA_Command_Parser {
         $lower = strtolower( $text );
         $role  = $wp_user ? INPURSUIT_WA_Auth::get_role( $wp_user ) : 'subscriber';
 
-        // Plain-English routing
+        // Plain-English routing (only runs when AI Agent Mode is OFF)
         if ( ! $ai_resolved && strpos( $lower, '/' ) !== 0 && $lower !== 'hi' && $lower !== 'hello' ) {
-            // AI Agent Mode: conversational agent with direct DB tool access
-            if ( INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1' ) {
-                $reply = INPURSUIT_WA_AI_Agent::handle( $text, $wp_user );
-                if ( $reply ) {
-                    return $reply;
-                }
-                // Fall through to keyword fallback if agent fails
-            } else {
-                // Standard: OpenAI router first, then keyword fallback
-                $resolved = INPURSUIT_WA_AI_Router::route( $text );
-                if ( ! $resolved ) {
-                    $resolved = INPURSUIT_WA_AI_Router::keyword_route( $text );
-                }
-                if ( $resolved ) {
-                    return self::handle( $resolved, $wp_user, true );
-                }
-            }
-
-            // Keyword fallback always runs if nothing else matched
-            if ( INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1' ) {
+            $resolved = INPURSUIT_WA_AI_Router::route( $text );
+            if ( ! $resolved ) {
                 $resolved = INPURSUIT_WA_AI_Router::keyword_route( $text );
-                if ( $resolved ) {
-                    return self::handle( $resolved, $wp_user, true );
-                }
+            }
+            if ( $resolved ) {
+                return self::handle( $resolved, $wp_user, true );
             }
         }
 
         // help / greeting
         if ( $lower === '/help' || $lower === 'hi' || $lower === 'hello' ) {
-            return INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1'
-                ? self::agent_help_message()
-                : self::help_message();
+            return self::help_message();
         }
 
         // members list
@@ -121,9 +101,7 @@ class INPURSUIT_WA_Command_Parser {
             return INPURSUIT_WA_Query_Handler::get_member( $name, $role );
         }
 
-        return INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1'
-            ? self::agent_help_message()
-            : self::help_message();
+        return self::help_message();
     }
 
     private static function agent_help_message() {

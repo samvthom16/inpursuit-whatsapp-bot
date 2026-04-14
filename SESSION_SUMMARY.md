@@ -493,6 +493,63 @@ WhatsApp reply
 
 ---
 
+## AI Agent Mode — Session State & UX (2026-04-14)
+
+### Session History via WordPress Transients
+
+When AI Agent Mode is ON, conversation history is persisted between messages using WordPress transients.
+
+| Detail | Value |
+|---|---|
+| Transient key | `inpursuit_wa_sess_{md5(phone)}` |
+| Value | JSON array of `{role, content}` pairs (user + assistant turns only) |
+| TTL | 300 seconds — reset on every reply |
+| History cap | 20 entries (10 user+assistant pairs) — oldest dropped when exceeded |
+
+Tool call messages from the internal agentic loop are not stored — they are ephemeral and regenerated each turn.
+
+### Multi-turn Clarifying Questions
+
+When the agent lacks enough context to call a tool (missing member name, event name, etc.), it asks a focused question instead of guessing. The answer is stored in session history, allowing the agent to ask multiple follow-up questions if needed:
+
+```
+user:   "add a note"
+agent:  "Who would you like to add a note for?"
+user:   "Peter"
+agent:  "What should the note say?"
+user:   "He called today asking for prayer"
+agent:  [calls add_member_comment("Peter", "He called today asking for prayer")]
+```
+
+Implemented via a system prompt instruction: *"Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence."*
+
+### Routing Split — Agent Mode vs Command Mode
+
+The mode split now happens in `class-wa-webhook.php` before the command parser is called:
+
+- **Agent Mode ON** → `INPURSUIT_WA_AI_Agent::handle($text, $wp_user, $phone)` directly. No slash commands, no keyword routing.
+- **Agent Mode OFF** → `INPURSUIT_WA_Command_Parser::handle($text, $wp_user)` as before.
+
+`class-wa-command-parser.php` no longer contains any agent mode logic.
+
+### Processing Message
+
+Before each agent call, a random "thinking" message is sent to the user immediately so they know the bot is working:
+
+```
+⏳ Looking into that...
+🔍 Let me check that for you...
+📋 Pulling that up now...
+🤔 On it, give me a moment...
+📊 Fetching that information...
+💬 Just a second...
+🔎 Searching the records...
+```
+
+Selected randomly via `array_rand()` on each request.
+
+---
+
 ## Still To Do
 
 - [ ] User to create Meta Business account

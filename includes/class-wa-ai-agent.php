@@ -14,21 +14,25 @@ class INPURSUIT_WA_AI_Agent {
 
     /**
      * Handle a plain-English message.
+     * Loads session history from a transient, sends it to OpenAI, then saves the updated history.
      * Returns a formatted string reply, or null if the API key is not configured or the call fails.
      *
      * @param  string       $text
      * @param  WP_User|null $wp_user
+     * @param  string       $phone    Sender phone number — used to key the session transient.
      * @return string|null
      */
-    public static function handle( $text, WP_User $wp_user = null ) {
+    public static function handle( $text, WP_User $wp_user = null, $phone = '' ) {
         $api_key = INPURSUIT_WA_Settings::get( 'openai_api_key' );
         if ( empty( $api_key ) ) {
             return null;
         }
 
-        $messages = array(
-            array( 'role' => 'system', 'content' => self::system_prompt( $wp_user ) ),
-            array( 'role' => 'user',   'content' => $text ),
+        $history  = self::load_session( $phone );
+        $messages = array_merge(
+            array( array( 'role' => 'system', 'content' => self::system_prompt( $wp_user ) ) ),
+            $history,
+            array( array( 'role' => 'user', 'content' => $text ) )
         );
 
         for ( $step = 0; $step < self::MAX_STEPS; $step++ ) {
@@ -65,9 +69,12 @@ class INPURSUIT_WA_AI_Agent {
                 return null;
             }
 
-            // Text reply — done
+            // Text reply — done (may be an answer or a clarifying question)
             if ( ! empty( $message['content'] ) && empty( $message['tool_calls'] ) ) {
                 INPURSUIT_WA_Logger::info( 'AI Agent: resolved in ' . ( $step + 1 ) . ' step(s) for: "' . $text . '"' );
+                $history[] = array( 'role' => 'user',      'content' => $text );
+                $history[] = array( 'role' => 'assistant', 'content' => $message['content'] );
+                self::save_session( $phone, $history );
                 return $message['content'];
             }
 
@@ -99,6 +106,37 @@ class INPURSUIT_WA_AI_Agent {
 
         INPURSUIT_WA_Logger::warning( 'AI Agent: max steps reached for: "' . $text . '"' );
         return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Session state — WordPress transients, 5-minute expiry
+    // -------------------------------------------------------------------------
+
+    /**
+     * Load prior conversation turns for this phone number.
+     * Returns an empty array if no session exists or the transient has expired.
+     */
+    private static function load_session( $phone ) {
+        if ( empty( $phone ) ) {
+            return array();
+        }
+        $history = get_transient( 'inpursuit_wa_sess_' . md5( $phone ) );
+        return is_array( $history ) ? $history : array();
+    }
+
+    /**
+     * Persist conversation turns for this phone number.
+     * Capped at the last 20 entries (10 user+assistant pairs) to keep transient size bounded.
+     * TTL is reset to 5 minutes from now on every save.
+     */
+    private static function save_session( $phone, $history ) {
+        if ( empty( $phone ) ) {
+            return;
+        }
+        if ( count( $history ) > 20 ) {
+            $history = array_slice( $history, -20 );
+        }
+        set_transient( 'inpursuit_wa_sess_' . md5( $phone ), $history, 300 );
     }
 
     // -------------------------------------------------------------------------
@@ -143,7 +181,10 @@ class INPURSUIT_WA_AI_Agent {
             . "Never expose internal IDs, table names, or technical details in your reply.\n\n"
             . "IMPORTANT: The only write operation permitted is add_member_comment. "
             . "Never attempt to modify, delete, or create any other data. "
-            . "All member retrieval is automatically scoped to this user's permitted groups — you must never try to access members outside these groups.";
+            . "All member retrieval is automatically scoped to this user's permitted groups — you must never try to access members outside these groups.\n\n"
+            . "If you do not have enough information to call a tool accurately — for example, the user said \"tell me about him\" "
+            . "but no name has been mentioned, or \"what was the attendance?\" without specifying an event — ask a short, focused question "
+            . "to get the missing detail. Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence.";
 
         if ( $wp_user ) {
             $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );
