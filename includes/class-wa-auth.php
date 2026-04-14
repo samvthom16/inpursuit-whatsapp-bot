@@ -2,32 +2,27 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Checks whether an incoming WhatsApp number is allowed to use the bot.
+ * Authenticates incoming WhatsApp numbers against the wp_ip_wa_users table.
  */
 class INPURSUIT_WA_Auth {
 
     /**
-     * @param string $phone  Phone number as provided by Meta (no + prefix, e.g. "447911123456")
-     * @return bool
+     * Resolve an incoming phone number to its WP_User.
+     *
+     * @param  string       $phone  Number as sent by Meta (no +, e.g. "447911123456")
+     * @return WP_User|null  Returns the user on success, null if not registered.
      */
-    public static function is_allowed( $phone ) {
-        $allowed = INPURSUIT_WA_Settings::get_allowed_numbers();
+    public static function get_user( $phone ) {
+        return INPURSUIT_WA_User_Table::get_user_by_phone( $phone );
+    }
 
-        // If whitelist is empty, allow anyone
-        if ( empty( $allowed ) ) {
-            return true;
-        }
-
-        // Normalise: strip leading + or spaces
-        $phone = ltrim( trim( $phone ), '+' );
-
-        foreach ( $allowed as $allowed_number ) {
-            $normalised = ltrim( trim( $allowed_number ), '+' );
-            if ( $normalised === $phone ) {
-                return true;
-            }
-        }
-
-        return false;
+    /**
+     * Get the primary role of a WP_User.
+     *
+     * @param  WP_User $user
+     * @return string  e.g. 'administrator', 'editor', 'subscriber'
+     */
+    public static function get_role( WP_User $user ) {
+        return ! empty( $user->roles ) ? $user->roles[0] : 'subscriber';
     }
 }

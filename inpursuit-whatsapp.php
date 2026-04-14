@@ -35,14 +35,29 @@ function inpursuit_wa_init() {
     }
 
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-logger.php';
+    require_once INPURSUIT_WA_DIR . 'includes/class-wa-user-table.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-auth.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-api.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-query-handler.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-command-parser.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-webhook.php';
     require_once INPURSUIT_WA_DIR . 'admin/class-wa-settings.php';
+    require_once INPURSUIT_WA_DIR . 'admin/class-wa-profile.php';
 
     INPURSUIT_WA_Webhook::get_instance();
     INPURSUIT_WA_Settings::get_instance();
+    INPURSUIT_WA_Profile::get_instance();
 }
 add_action( 'plugins_loaded', 'inpursuit_wa_init' );
+
+/**
+ * Create the wp_ip_wa_users table on plugin activation.
+ */
+function inpursuit_wa_activate() {
+    // Dependencies must be loaded manually here (plugins_loaded hasn't fired yet)
+    if ( defined( 'INPURSUIT_VERSION' ) ) {
+        require_once INPURSUIT_WA_DIR . 'includes/class-wa-user-table.php';
+        INPURSUIT_WA_User_Table::create_table();
+    }
+}
+register_activation_hook( INPURSUIT_WA_FILE, 'inpursuit_wa_activate' );

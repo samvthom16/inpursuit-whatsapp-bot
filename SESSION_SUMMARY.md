@@ -192,6 +192,76 @@ File-based logger writing to `wp-content/uploads/inpursuit-wa-logs/webhook.log`.
 
 ---
 
+---
+
+## Authentication Overhaul (2026-04-14)
+
+### New Table — `wp_ip_wa_users`
+Replaces the old plaintext "Allowed Numbers" whitelist in settings.
+
+| Column | Type | Notes |
+|---|---|---|
+| `ID` | BIGINT | Auto-increment PK |
+| `user_id` | BIGINT | Unique FK → `wp_users` |
+| `phone` | VARCHAR(30) | Unique, no + prefix |
+
+Created automatically via `register_activation_hook`.
+
+### New Files
+- **`includes/class-wa-user-table.php`** — table creation + CRUD (`get_user_by_phone`, `get_phone_for_user`, `save_phone_for_user`)
+- **`admin/class-wa-profile.php`** — adds a *WhatsApp Number* field to every WP user profile page (show + save with nonce + duplicate check)
+
+### Updated Auth Flow
+```
+Incoming phone
+    → INPURSUIT_WA_Auth::get_user()      looks up wp_ip_wa_users
+    → returns WP_User (or blocks if null)
+    → INPURSUIT_WA_Auth::get_role()      reads $user->roles[0]
+    → passed into Command_Parser::handle($text, $wp_user)
+    → passed as $role into every Query_Handler method
+```
+
+### Unauthenticated Response
+```
+⛔ *Access Denied*
+
+Your number is not registered to use this bot.
+Please contact your administrator to get access.
+```
+
+### To Authorise a User
+WP Admin → Users → Edit User → *InPursuit WhatsApp Bot* section → enter number → Save.
+
+### Removed
+- "Allowed Numbers" textarea from the settings page
+- `get_allowed_numbers()` helper from `class-wa-settings.php`
+- `is_allowed()` method from `class-wa-auth.php`
+
+---
+
+## Commands Update (2026-04-14)
+
+### Removed Commands
+- `members <group>`
+- `event <name>`
+- `birthday`
+
+### Current Commands
+| Command | Description |
+|---|---|
+| `member <name>` | Search for a member |
+| `status <name>` | Member follow-up status |
+| `events` | Special dates this month (from `wp_ip_member_dates`) |
+| `attendance <event>` | Event attendance |
+| `followup` | Members needing follow-up |
+| `stats` | Summary statistics |
+| `help` | Show command list |
+
+### `events` Command
+Queries `wp_ip_member_dates` directly for birthdays and weddings in the current calendar month, from today onwards, ordered by day ASC.
+
+---
+
 ## Still To Do
 
 - [ ] User to create Meta Business account
@@ -199,4 +269,5 @@ File-based logger writing to `wp-content/uploads/inpursuit-wa-logs/webhook.log`.
 - [ ] Deploy plugin to live WordPress server
 - [ ] Test webhook verification with Meta dashboard
 - [ ] Test all bot commands end-to-end
+- [ ] Implement role-based data filtering in query handler
 - [ ] Consider adding conversation state (e.g. multi-step member lookup)

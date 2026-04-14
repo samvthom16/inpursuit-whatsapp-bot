@@ -120,15 +120,23 @@ class INPURSUIT_WA_Webhook {
         // Mark as read immediately
         INPURSUIT_WA_API::mark_as_read( $message_id );
 
-        // Check if sender is authorised
-        if ( ! INPURSUIT_WA_Auth::is_allowed( $from ) ) {
+        // Resolve phone to a registered WP user
+        $wp_user = INPURSUIT_WA_Auth::get_user( $from );
+        if ( ! $wp_user ) {
             INPURSUIT_WA_Logger::warning( 'Unauthorised sender blocked: ' . $from );
-            INPURSUIT_WA_API::send_text( $from, "Sorry, you are not authorised to use this bot." );
+            INPURSUIT_WA_API::send_text( $from, implode( "\n", array(
+                "⛔ *Access Denied*",
+                "",
+                "Your number is not registered to use this bot.",
+                "Please contact your administrator to get access.",
+            ) ) );
             return;
         }
 
+        INPURSUIT_WA_Logger::info( 'Authenticated as user #' . $wp_user->ID . ' (' . $wp_user->user_login . ') role=' . INPURSUIT_WA_Auth::get_role( $wp_user ) );
+
         // Parse the command and get a response
-        $response = INPURSUIT_WA_Command_Parser::handle( $text );
+        $response = INPURSUIT_WA_Command_Parser::handle( $text, $wp_user );
 
         INPURSUIT_WA_Logger::info( 'Command handled for ' . $from . ' | command="' . $text . '" | reply_length=' . strlen( $response ) . ' chars' );
 

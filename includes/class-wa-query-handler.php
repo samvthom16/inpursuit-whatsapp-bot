@@ -14,7 +14,7 @@ class INPURSUIT_WA_Query_Handler {
     /**
      * Search for a member by name and return their profile.
      */
-    public static function get_member( $name ) {
+    public static function get_member( $name, $role = 'subscriber' ) {
         global $wpdb;
 
         $like    = '%' . $wpdb->esc_like( $name ) . '%';
@@ -46,7 +46,7 @@ class INPURSUIT_WA_Query_Handler {
     /**
      * Return just the follow-up status for a member.
      */
-    public static function get_member_status( $name ) {
+    public static function get_member_status( $name, $role = 'subscriber' ) {
         global $wpdb;
 
         $like   = '%' . $wpdb->esc_like( $name ) . '%';
@@ -79,7 +79,7 @@ class INPURSUIT_WA_Query_Handler {
     /**
      * List members with 'pending' / follow-up needed status.
      */
-    public static function get_followup_members() {
+    public static function get_followup_members( $role = 'subscriber' ) {
         global $wpdb;
 
         // Get the term ID for the 'pending' status (or any follow-up status)
@@ -190,26 +190,41 @@ class INPURSUIT_WA_Query_Handler {
     // -------------------------------------------------------------------------
 
     /**
-     * List the 5 most recent events.
+     * List upcoming special dates (birthdays & weddings) for the current month
+     * from the wp_ip_member_dates table.
      */
-    public static function get_recent_events() {
-        $events = get_posts( array(
-            'post_type'      => INPURSUIT_EVENTS_POST_TYPE,
-            'post_status'    => 'publish',
-            'posts_per_page' => 5,
-            'orderby'        => 'date',
-            'order'          => 'DESC',
+    public static function get_recent_events( $role = 'subscriber' ) {
+        global $wpdb;
+
+        $table      = $wpdb->prefix . 'ip_member_dates';
+        $month      = (int) date( 'm' );
+        $today_day  = (int) date( 'd' );
+        $month_name = date( 'F Y' );
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT md.member_id, md.event_type, md.event_date, p.post_title AS member_name
+             FROM {$table} md
+             INNER JOIN {$wpdb->posts} p ON p.ID = md.member_id
+             WHERE p.post_status = 'publish'
+               AND p.post_type = 'inpursuit-members'
+               AND MONTH( md.event_date ) = %d
+               AND DAY( md.event_date ) >= %d
+             ORDER BY DAY( md.event_date ) ASC",
+            $month,
+            $today_day
         ) );
 
-        if ( empty( $events ) ) {
-            return "No events found.";
+        if ( empty( $rows ) ) {
+            return "No special dates remaining in {$month_name}.";
         }
 
-        $lines = array( "*Recent Events:*" );
-        foreach ( $events as $e ) {
-            $date  = get_the_date( 'd M Y', $e->ID );
-            $type  = self::get_member_taxonomy( $e->ID, 'inpursuit-event-type' );
-            $lines[] = "• {$e->post_title} ({$date})" . ( $type ? " [{$type}]" : '' );
+        $lines = array( "*Special Dates — {$month_name}:*", "" );
+
+        foreach ( $rows as $row ) {
+            $day   = date( 'd M', strtotime( $row->event_date ) );
+            $emoji = $row->event_type === 'birthday' ? '🎂' : '💍';
+            $type  = ucfirst( $row->event_type );
+            $lines[] = "{$emoji} *{$row->member_name}* — {$type} ({$day})";
         }
 
         return implode( "\n", $lines );
@@ -240,7 +255,7 @@ class INPURSUIT_WA_Query_Handler {
     /**
      * Get attendance info for an event by name.
      */
-    public static function get_event_attendance( $name ) {
+    public static function get_event_attendance( $name, $role = 'subscriber' ) {
         global $wpdb;
 
         $like   = '%' . $wpdb->esc_like( $name ) . '%';
@@ -328,7 +343,7 @@ class INPURSUIT_WA_Query_Handler {
     // Stats
     // -------------------------------------------------------------------------
 
-    public static function get_stats() {
+    public static function get_stats( $role = 'subscriber' ) {
         global $wpdb;
 
         $total_members = $wpdb->get_var( $wpdb->prepare(

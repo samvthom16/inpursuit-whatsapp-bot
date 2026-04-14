@@ -66,10 +66,9 @@ class INPURSUIT_WA_Settings {
     public function sanitize_settings( $input ) {
         $clean = array();
 
-        $clean['phone_number_id']  = sanitize_text_field( $input['phone_number_id'] ?? '' );
-        $clean['access_token']     = sanitize_text_field( $input['access_token'] ?? '' );
-        $clean['verify_token']     = sanitize_text_field( $input['verify_token'] ?? '' );
-        $clean['allowed_numbers']  = sanitize_textarea_field( $input['allowed_numbers'] ?? '' );
+        $clean['phone_number_id'] = sanitize_text_field( $input['phone_number_id'] ?? '' );
+        $clean['access_token']    = sanitize_text_field( $input['access_token'] ?? '' );
+        $clean['verify_token']    = sanitize_text_field( $input['verify_token'] ?? '' );
 
         return $clean;
     }
@@ -126,13 +125,9 @@ class INPURSUIT_WA_Settings {
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="wa_allowed_numbers">Allowed Phone Numbers</label></th>
-                        <td>
-                            <textarea id="wa_allowed_numbers" name="<?php echo self::OPTION_KEY; ?>[allowed_numbers]"
-                                rows="5" class="large-text"><?php echo esc_textarea( $options['allowed_numbers'] ); ?></textarea>
+                        <td colspan="2">
                             <p class="description">
-                                One number per line in international format (e.g. <code>447911123456</code>).<br/>
-                                Only these numbers can query the bot. Leave blank to allow anyone.
+                                To authorise a user, go to <strong>Users &rarr; Edit User</strong> and set their <strong>WhatsApp Number</strong> in the <em>InPursuit WhatsApp Bot</em> section.
                             </p>
                         </td>
                     </tr>
@@ -210,7 +205,6 @@ class INPURSUIT_WA_Settings {
             'phone_number_id' => '',
             'access_token'    => '',
             'verify_token'    => '',
-            'allowed_numbers' => '',
         );
         return wp_parse_args( get_option( self::OPTION_KEY, array() ), $defaults );
     }
@@ -220,15 +214,4 @@ class INPURSUIT_WA_Settings {
         return $options[ $key ] ?? '';
     }
 
-    /**
-     * Returns an array of allowed phone numbers, or empty array if unrestricted.
-     */
-    public static function get_allowed_numbers() {
-        $raw = self::get( 'allowed_numbers' );
-        if ( empty( trim( $raw ) ) ) {
-            return array();
-        }
-        $lines = explode( "\n", $raw );
-        return array_filter( array_map( 'trim', $lines ) );
-    }
 }
