@@ -20,6 +20,7 @@ class INPURSUIT_WA_Settings {
     private function __construct() {
         add_action( 'admin_menu', array( $this, 'register_menu' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
+        add_action( 'admin_init', array( $this, 'handle_clear_logs' ) );
     }
 
     public function register_menu() {
@@ -31,6 +32,19 @@ class INPURSUIT_WA_Settings {
             'inpursuit-whatsapp',
             array( $this, 'render_page' )
         );
+    }
+
+    public function handle_clear_logs() {
+        if (
+            isset( $_POST['inpursuit_wa_clear_logs'] ) &&
+            check_admin_referer( 'inpursuit_wa_clear_logs_nonce' ) &&
+            current_user_can( 'manage_options' )
+        ) {
+            INPURSUIT_WA_Logger::clear();
+            INPURSUIT_WA_Logger::info( 'Log cleared by admin.' );
+            wp_safe_redirect( add_query_arg( 'logs_cleared', '1', wp_get_referer() ) );
+            exit;
+        }
     }
 
     public function register_settings() {
@@ -117,6 +131,36 @@ class INPURSUIT_WA_Settings {
                 </table>
                 <?php submit_button(); ?>
             </form>
+
+            <hr style="margin: 32px 0;" />
+
+            <!-- ================================================================
+                 Webhook Logs
+                 ================================================================ -->
+            <h2>Webhook Logs</h2>
+
+            <?php if ( isset( $_GET['logs_cleared'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p>Logs cleared.</p></div>
+            <?php endif; ?>
+
+            <p style="color:#555;">
+                Last 150 entries &mdash; log file: <code><?php echo esc_html( INPURSUIT_WA_Logger::get_log_path() ?: 'not yet created' ); ?></code>
+            </p>
+
+            <?php $log_content = INPURSUIT_WA_Logger::get_recent( 150 ); ?>
+
+            <?php if ( $log_content === '' ) : ?>
+                <p style="color:#888;font-style:italic;">No log entries yet. Trigger a webhook event to see output here.</p>
+            <?php else : ?>
+                <textarea readonly rows="20" style="width:100%;font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;padding:12px;border:1px solid #444;border-radius:4px;resize:vertical;"><?php echo esc_textarea( $log_content ); ?></textarea>
+            <?php endif; ?>
+
+            <form method="post" style="margin-top:8px;">
+                <?php wp_nonce_field( 'inpursuit_wa_clear_logs_nonce' ); ?>
+                <input type="hidden" name="inpursuit_wa_clear_logs" value="1" />
+                <?php submit_button( 'Clear Logs', 'delete', 'submit', false ); ?>
+            </form>
+
         </div>
         <?php
     }

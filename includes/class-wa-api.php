@@ -21,6 +21,7 @@ class INPURSUIT_WA_API {
 
         if ( empty( $phone_number_id ) || empty( $access_token ) ) {
             error_log( 'InPursuit WA: phone_number_id or access_token not configured.' );
+            INPURSUIT_WA_Logger::error( 'send_text aborted — phone_number_id or access_token not configured.' );
             return false;
         }
 
@@ -46,13 +47,17 @@ class INPURSUIT_WA_API {
         ) );
 
         if ( is_wp_error( $response ) ) {
-            error_log( 'InPursuit WA send error: ' . $response->get_error_message() );
+            $err = $response->get_error_message();
+            error_log( 'InPursuit WA send error: ' . $err );
+            INPURSUIT_WA_Logger::error( 'Meta API request failed for ' . $to . ': ' . $err );
             return false;
         }
 
         $code = wp_remote_retrieve_response_code( $response );
         if ( $code !== 200 ) {
-            error_log( 'InPursuit WA send failed (' . $code . '): ' . wp_remote_retrieve_body( $response ) );
+            $body = wp_remote_retrieve_body( $response );
+            error_log( 'InPursuit WA send failed (' . $code . '): ' . $body );
+            INPURSUIT_WA_Logger::error( 'Meta API returned HTTP ' . $code . ' for ' . $to . ': ' . $body );
             return false;
         }
 

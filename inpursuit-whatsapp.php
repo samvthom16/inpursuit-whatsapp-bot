@@ -34,6 +34,7 @@ function inpursuit_wa_init() {
         return;
     }
 
+    require_once INPURSUIT_WA_DIR . 'includes/class-wa-logger.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-auth.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-api.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-query-handler.php';
