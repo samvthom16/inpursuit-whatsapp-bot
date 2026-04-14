@@ -164,20 +164,10 @@ class INPURSUIT_WA_AI_Agent {
 
     private static function dispatch_tool( $name, $args, $wp_user ) {
         switch ( $name ) {
-            case 'get_members':
-                return INPURSUIT_WA_DB_Tools::get_members( $args, $wp_user );
             case 'get_member_details':
                 return INPURSUIT_WA_DB_Tools::get_member_details( $args, $wp_user );
-            case 'get_member_history':
-                return INPURSUIT_WA_DB_Tools::get_member_history( $args, $wp_user );
-            case 'get_stats':
-                return INPURSUIT_WA_DB_Tools::get_stats( $args, $wp_user );
-            case 'get_followup_members':
-                return INPURSUIT_WA_DB_Tools::get_followup_members( $args, $wp_user );
             case 'get_events':
                 return INPURSUIT_WA_DB_Tools::get_events( $args, $wp_user );
-            case 'get_event_attendance':
-                return INPURSUIT_WA_DB_Tools::get_event_attendance( $args, $wp_user );
             case 'add_member_comment':
                 return INPURSUIT_WA_DB_Tools::add_member_comment( $args, $wp_user );
             case 'get_comment_categories':
@@ -193,17 +183,19 @@ class INPURSUIT_WA_AI_Agent {
 
     private static function system_prompt( $wp_user ) {
         $prompt = "You are a helpful assistant for InPursuit, a church management system. "
-            . "You help church administrators query member data, events, attendance, and follow-up records via WhatsApp. "
+            . "You help church administrators with three tasks via WhatsApp: "
+            . "looking up member details, checking special dates (birthdays and anniversaries), and adding follow-up notes to members. "
             . "Use the provided tools to answer questions. Always call a tool before answering data questions — never invent data. "
             . "Keep replies concise and formatted for WhatsApp (use *bold* for names and headings, bullet points with •). "
             . "If a query returns no results, say so clearly. "
-            . "Never expose internal IDs, table names, or technical details in your reply.\n\n"
+            . "Never expose internal IDs, table names, or technical details in your reply. "
+            . "If the user asks about something outside these three tasks, politely let them know what you can help with.\n\n"
             . "IMPORTANT: The only write operation permitted is add_member_comment. "
             . "Never attempt to modify, delete, or create any other data. "
             . "All member retrieval is automatically scoped to this user's permitted groups — you must never try to access members outside these groups.\n\n"
             . "If you do not have enough information to call a tool accurately — for example, the user said \"tell me about him\" "
-            . "but no name has been mentioned, or \"what was the attendance?\" without specifying an event — ask a short, focused question "
-            . "to get the missing detail. Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence.\n\n"
+            . "but no name has been mentioned — ask a short, focused question to get the missing detail. "
+            . "Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence.\n\n"
             . "IMPORTANT: Before calling add_member_comment, you must have all three of the following confirmed:\n"
             . "1. The member's name\n"
             . "2. The comment category (call get_comment_categories to get the list, then pick the best match)\n"
@@ -242,24 +234,6 @@ class INPURSUIT_WA_AI_Agent {
             array(
                 'type'     => 'function',
                 'function' => array(
-                    'name'        => 'get_members',
-                    'description' => 'Get a list of members, optionally filtered by group, status, gender, or location.',
-                    'parameters'  => array(
-                        'type'       => 'object',
-                        'properties' => array(
-                            'group'    => array( 'type' => 'string', 'description' => 'Filter by group name (e.g. "Youth", "Connect").' ),
-                            'status'   => array( 'type' => 'string', 'description' => 'Filter by status name (e.g. "Active", "Pending").' ),
-                            'gender'   => array( 'type' => 'string', 'description' => 'Filter by gender.' ),
-                            'location' => array( 'type' => 'string', 'description' => 'Filter by location name.' ),
-                            'limit'    => array( 'type' => 'integer', 'description' => 'Max members to return (default 15, max 30).' ),
-                        ),
-                        'required' => array(),
-                    ),
-                ),
-            ),
-            array(
-                'type'     => 'function',
-                'function' => array(
                     'name'        => 'get_member_details',
                     'description' => 'Get the full profile of a single member by name.',
                     'parameters'  => array(
@@ -274,64 +248,12 @@ class INPURSUIT_WA_AI_Agent {
             array(
                 'type'     => 'function',
                 'function' => array(
-                    'name'        => 'get_member_history',
-                    'description' => 'Get recent comments and events attended for a member.',
-                    'parameters'  => array(
-                        'type'       => 'object',
-                        'properties' => array(
-                            'name' => array( 'type' => 'string', 'description' => 'The member\'s name.' ),
-                        ),
-                        'required' => array( 'name' ),
-                    ),
-                ),
-            ),
-            array(
-                'type'     => 'function',
-                'function' => array(
-                    'name'        => 'get_stats',
-                    'description' => 'Get overall statistics: total members, total events, breakdown by status and group.',
-                    'parameters'  => array(
-                        'type'       => 'object',
-                        'properties' => new stdClass(),
-                        'required'   => array(),
-                    ),
-                ),
-            ),
-            array(
-                'type'     => 'function',
-                'function' => array(
-                    'name'        => 'get_followup_members',
-                    'description' => 'Get the list of members who need follow-up (pending or inactive status).',
-                    'parameters'  => array(
-                        'type'       => 'object',
-                        'properties' => new stdClass(),
-                        'required'   => array(),
-                    ),
-                ),
-            ),
-            array(
-                'type'     => 'function',
-                'function' => array(
                     'name'        => 'get_events',
-                    'description' => 'Get all special dates (birthdays and anniversaries) remaining this month. All non-birthday events are returned with event_type "Anniversary" regardless of how they are stored. Use this tool for any question about birthdays, anniversaries, wedding anniversaries, or special dates.',
+                    'description' => 'Get all special dates (birthdays and anniversaries) remaining this month. Use this for any question about birthdays, anniversaries, wedding anniversaries, or special dates.',
                     'parameters'  => array(
                         'type'       => 'object',
                         'properties' => new stdClass(),
                         'required'   => array(),
-                    ),
-                ),
-            ),
-            array(
-                'type'     => 'function',
-                'function' => array(
-                    'name'        => 'get_event_attendance',
-                    'description' => 'Get attendance statistics for a specific church event by name.',
-                    'parameters'  => array(
-                        'type'       => 'object',
-                        'properties' => array(
-                            'event_name' => array( 'type' => 'string', 'description' => 'The name of the event (partial names supported).' ),
-                        ),
-                        'required' => array( 'event_name' ),
                     ),
                 ),
             ),
@@ -339,13 +261,13 @@ class INPURSUIT_WA_AI_Agent {
                 'type'     => 'function',
                 'function' => array(
                     'name'        => 'add_member_comment',
-                    'description' => 'Save a follow-up comment for a member, with an optional category.',
+                    'description' => 'Save a follow-up note or comment for a member, with a category.',
                     'parameters'  => array(
                         'type'       => 'object',
                         'properties' => array(
                             'member_name'   => array( 'type' => 'string', 'description' => 'The member\'s name.' ),
-                            'comment_text'  => array( 'type' => 'string', 'description' => 'The comment text.' ),
-                            'category_name' => array( 'type' => 'string', 'description' => 'Optional category name.' ),
+                            'comment_text'  => array( 'type' => 'string', 'description' => 'The note or comment text.' ),
+                            'category_name' => array( 'type' => 'string', 'description' => 'Category name from get_comment_categories.' ),
                         ),
                         'required' => array( 'member_name', 'comment_text' ),
                     ),
@@ -355,7 +277,7 @@ class INPURSUIT_WA_AI_Agent {
                 'type'     => 'function',
                 'function' => array(
                     'name'        => 'get_comment_categories',
-                    'description' => 'Get all available comment categories.',
+                    'description' => 'Get all available comment categories. Call this before add_member_comment to pick the right category.',
                     'parameters'  => array(
                         'type'       => 'object',
                         'properties' => new stdClass(),

@@ -135,24 +135,21 @@ class INPURSUIT_WA_Webhook {
 
         INPURSUIT_WA_Logger::info( 'Authenticated as user #' . $wp_user->ID . ' (' . $wp_user->user_login . ') role=' . INPURSUIT_WA_Auth::get_role( $wp_user ) );
 
-        // Route message — agent mode bypasses the command parser entirely
-        if ( INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1' ) {
-            $thinking_messages = array(
-                '⏳ Looking into that...',
-                '🔍 Let me check that for you...',
-                '📋 Pulling that up now...',
-                '🤔 On it, give me a moment...',
-                '📊 Fetching that information...',
-                '💬 Just a second...',
-                '🔎 Searching the records...',
-            );
-            INPURSUIT_WA_API::send_text( $from, $thinking_messages[ array_rand( $thinking_messages ) ] );
-            $response = INPURSUIT_WA_AI_Agent::handle( $text, $wp_user, $from );
-            if ( ! $response ) {
-                $response = "Sorry, I wasn't able to process that. Please try rephrasing your question.";
-            }
-        } else {
-            $response = INPURSUIT_WA_Command_Parser::handle( $text, $wp_user );
+        // Send a thinking message immediately so the user knows the bot is working
+        $thinking_messages = array(
+            '⏳ Looking into that...',
+            '🔍 Let me check that for you...',
+            '📋 Pulling that up now...',
+            '🤔 On it, give me a moment...',
+            '📊 Fetching that information...',
+            '💬 Just a second...',
+            '🔎 Searching the records...',
+        );
+        INPURSUIT_WA_API::send_text( $from, $thinking_messages[ array_rand( $thinking_messages ) ] );
+
+        $response = INPURSUIT_WA_AI_Agent::handle( $text, $wp_user, $from );
+        if ( ! $response ) {
+            $response = "Sorry, I wasn't able to process that. Please try rephrasing your question.";
         }
 
         INPURSUIT_WA_Logger::info( 'Response ready for ' . $from . ' | input="' . $text . '" | reply_length=' . strlen( $response ) . ' chars' );
