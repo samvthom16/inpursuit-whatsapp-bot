@@ -262,6 +262,14 @@ Queries `wp_ip_member_dates` directly for birthdays and weddings in the current 
 
 ---
 
+---
+
+## Cleanup (2026-04-14)
+
+- Removed log preview section from the settings page — logs are now only on the dedicated **WhatsApp Logs** page (WP Admin → InPursuit → WhatsApp Logs)
+
+---
+
 ## Still To Do
 
 - [ ] User to create Meta Business account
