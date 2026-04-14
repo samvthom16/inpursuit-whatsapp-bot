@@ -82,16 +82,16 @@ INPURSUIT_WA_API  ──►  Meta Cloud API  ──►  WhatsApp User
 
 | Command | Description |
 |---|---|
-| `help` | List all available commands |
-| `member <name>` | Full member profile (status, group, age, last seen, etc.) |
-| `status <name>` | Member follow-up status + last seen event |
-| `members <group>` | List all members in a group |
-| `events` | 5 most recent events |
-| `event <name>` | Event detail + attendance stats |
-| `attendance <event>` | Attendance count and percentage for an event |
-| `birthday` | Birthdays and anniversaries in the next 30 days |
-| `followup` | Members with pending/follow-up status |
-| `stats` | Summary: total members, events, breakdown by status & group |
+| `/help` | List all available commands |
+| `/member <name>` | Full member profile (status, group, age, last seen, etc.) |
+| `/status <name>` | Member follow-up status + last seen event |
+| `/members <group>` | List all members in a group |
+| `/events` | 5 most recent events |
+| `/event <name>` | Event detail + attendance stats |
+| `/attendance <event>` | Attendance count and percentage for an event |
+| `/birthday` | Birthdays and anniversaries in the next 30 days |
+| `/followup` | Members with pending/follow-up status |
+| `/stats` | Summary: total members, events, breakdown by status & group |
 
 ---
 
@@ -153,7 +153,7 @@ https://yoursite.com/wp-json/inpursuit-wa/v1/webhook
    - Click **Verify and Save**
    - Subscribe to the **`messages`** webhook field
 10. Add admin team phone numbers to the whitelist
-11. Test by sending `help` to the bot number on WhatsApp
+11. Test by sending `/help` to the bot number on WhatsApp
 
 ---
 
@@ -249,16 +249,26 @@ WP Admin → Users → Edit User → *InPursuit WhatsApp Bot* section → enter 
 ### Current Commands
 | Command | Description |
 |---|---|
-| `member <name>` | Search for a member |
-| `status <name>` | Member follow-up status |
-| `events` | Special dates this month (from `wp_ip_member_dates`) |
-| `attendance <event>` | Event attendance |
-| `followup` | Members needing follow-up |
-| `stats` | Summary statistics |
-| `help` | Show command list |
+| `/member <name>` | Search for a member |
+| `/status <name>` | Member follow-up status |
+| `/events` | Special dates this month (from `wp_ip_member_dates`) |
+| `/attendance <event>` | Event attendance |
+| `/followup` | Members needing follow-up |
+| `/stats` | Summary statistics |
+| `/help` | Show command list |
 
 ### `events` Command
 Queries `wp_ip_member_dates` directly for birthdays and weddings in the current calendar month, from today onwards, ordered by day ASC.
+
+---
+
+## Commands — Slash Prefix (2026-04-14)
+
+All commands now require a `/` prefix (e.g. `/help`, `/stats`). Plain-text commands are no longer accepted.
+
+- Aliases (`statistics`, `follow up`, `pending`) removed
+- Fallback member-name search removed — unknown input returns the help message
+- `hi` / `hello` greetings still return the help message
 
 ---
 
