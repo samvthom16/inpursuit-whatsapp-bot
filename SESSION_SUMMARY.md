@@ -332,8 +332,38 @@ User: "who needs a follow up?"
 | "attendance for Sunday Service" | `/attendance Sunday Service` |
 | "any birthdays this month?" | `/events` |
 
+### AI-Powered Comment Parsing (two-step)
+
+When AI is enabled and intent is `/comment`, a **second OpenAI call** runs to extract structured fields from the freeform message:
+
+```
+Input: "Kajal asked prayer request for her mother. She needs to meet the dentist."
+
+Step 1 — Intent detection
+  OpenAI → command = /comment
+
+Step 2 — parse_comment_fields()
+  Categories fetched from wp_ip_comments_category → sent to OpenAI
+  OpenAI extracts:
+    member_name     = "Kajal"
+    comment_summary = "Prayer request for mother's dental appointment"
+    category_name   = "Prayer Request"   ← best match from DB list
+
+Canonical command built:
+  /comment Kajal | Prayer request for mother's dental appointment | Prayer Request
+
+add_member_comment() resolves:
+  member_id  → DB search "Kajal"  (with group filter)
+  user_id    → $wp_user->ID       (from phone number auth)
+  INSERT wp_ip_comments + wp_ip_comments_category_relation
+```
+
+**Fallback:** if `parse_comment_fields()` fails, returns `null` → keyword router handles it.
+
 ### Logging
 - `AI Router: "..." → "..."` — INFO on every successful AI resolution
+- `AI Router (comment): "..." → "..."` — INFO on AI-parsed comment commands
+- `AI Router (comment parse): member="..." category="..." summary="..."` — INFO on extracted fields
 - `AI Router: HTTP error` / `OpenAI returned status NNN` — ERROR on failures
 - `Keyword Router: "..." → "..."` — INFO on every keyword match
 

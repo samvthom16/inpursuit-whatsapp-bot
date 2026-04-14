@@ -77,8 +77,27 @@ class INPURSUIT_WA_AI_Router {
         }
 
         $command = $args['command'];
-        $arg     = isset( $args['arg'] ) ? trim( $args['arg'] ) : '';
 
+        // ── Special handling for /comment ─────────────────────────────────────
+        // Run a second AI call to extract member name, summary, and category
+        // from the freeform message rather than passing raw text through.
+        if ( $command === '/comment' ) {
+            $parsed = self::parse_comment_fields( $text, $api_key );
+            if ( $parsed ) {
+                $resolved = '/comment ' . $parsed['member_name'] . ' | ' . $parsed['comment_summary'];
+                if ( ! empty( $parsed['category_name'] ) ) {
+                    $resolved .= ' | ' . $parsed['category_name'];
+                }
+                INPURSUIT_WA_Logger::info( 'AI Router (comment): "' . $text . '" → "' . $resolved . '"' );
+                return $resolved;
+            }
+            // Parsing failed — fall back so keyword_route or help handles it
+            INPURSUIT_WA_Logger::warning( 'AI Router: comment field parsing failed for: "' . $text . '"' );
+            return null;
+        }
+
+        // ── All other commands ────────────────────────────────────────────────
+        $arg      = isset( $args['arg'] ) ? trim( $args['arg'] ) : '';
         $resolved = $arg ? $command . ' ' . $arg : $command;
 
         INPURSUIT_WA_Logger::info( 'AI Router: "' . $text . '" → "' . $resolved . '"' );
@@ -220,6 +239,125 @@ Rules:
 - If you cannot confidently match the intent, use /help.
 - Names and event names go in the "arg" field exactly as the user typed them.
 PROMPT;
+    }
+
+    /**
+     * Second AI call: extract member name, comment summary, and category
+     * from a freeform message. Categories are fetched from the DB and passed
+     * to OpenAI so it can match the closest one by name.
+     *
+     * @param  string $text     The raw user message.
+     * @param  string $api_key  OpenAI API key (already validated by caller).
+     * @return array|null  ['member_name', 'comment_summary', 'category_name'] or null on failure.
+     */
+    private static function parse_comment_fields( $text, $api_key ) {
+        // Fetch available categories from the DB
+        $cat_db         = INPURSUIT_DB_COMMENTS_CATEGORY::getInstance();
+        $category_rows  = $cat_db->get_results( $cat_db->getResultsQuery( array() ) );
+        $category_names = wp_list_pluck( $category_rows, 'name' );
+        $categories_str = ! empty( $category_names )
+            ? implode( ', ', $category_names )
+            : 'No categories available';
+
+        $system = "You are a data extraction assistant for a church management system.\n"
+            . "Extract structured comment data from the user's message.\n\n"
+            . "Available comment categories: {$categories_str}\n\n"
+            . "Rules:\n"
+            . "- member_name: the name of the church member the comment is about.\n"
+            . "- comment_summary: a concise 1–2 sentence factual summary of the comment.\n"
+            . "- category_name: pick the best matching category name exactly as listed above, or leave empty if none fit.";
+
+        $payload = array(
+            'model'       => self::MODEL,
+            'messages'    => array(
+                array( 'role' => 'system', 'content' => $system ),
+                array( 'role' => 'user',   'content' => $text ),
+            ),
+            'tools'       => array( self::comment_parse_tool() ),
+            'tool_choice' => array(
+                'type'     => 'function',
+                'function' => array( 'name' => 'parse_comment' ),
+            ),
+            'temperature' => 0,
+        );
+
+        $response = wp_remote_post( self::API_URL, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+            ),
+            'body'    => wp_json_encode( $payload ),
+            'timeout' => 15,
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            INPURSUIT_WA_Logger::error( 'AI Router (comment parse): HTTP error — ' . $response->get_error_message() );
+            return null;
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $status !== 200 || empty( $body ) ) {
+            INPURSUIT_WA_Logger::error( 'AI Router (comment parse): OpenAI returned status ' . $status );
+            return null;
+        }
+
+        $tool_calls = $body['choices'][0]['message']['tool_calls'] ?? array();
+        if ( empty( $tool_calls ) ) {
+            INPURSUIT_WA_Logger::warning( 'AI Router (comment parse): No tool call returned.' );
+            return null;
+        }
+
+        $parsed = json_decode( $tool_calls[0]['function']['arguments'] ?? '{}', true );
+
+        if ( empty( $parsed['member_name'] ) || empty( $parsed['comment_summary'] ) ) {
+            INPURSUIT_WA_Logger::warning( 'AI Router (comment parse): Missing required fields in response.' );
+            return null;
+        }
+
+        INPURSUIT_WA_Logger::info(
+            'AI Router (comment parse): member="' . $parsed['member_name'] . '"'
+            . ' category="' . ( $parsed['category_name'] ?? '' ) . '"'
+            . ' summary="' . $parsed['comment_summary'] . '"'
+        );
+
+        return array(
+            'member_name'     => trim( $parsed['member_name'] ),
+            'comment_summary' => trim( $parsed['comment_summary'] ),
+            'category_name'   => trim( $parsed['category_name'] ?? '' ),
+        );
+    }
+
+    /**
+     * OpenAI function calling tool definition for comment field extraction.
+     */
+    private static function comment_parse_tool() {
+        return array(
+            'type'     => 'function',
+            'function' => array(
+                'name'        => 'parse_comment',
+                'description' => 'Extract structured comment fields from a freeform message about a church member.',
+                'parameters'  => array(
+                    'type'       => 'object',
+                    'properties' => array(
+                        'member_name' => array(
+                            'type'        => 'string',
+                            'description' => 'The name of the church member this comment is about.',
+                        ),
+                        'comment_summary' => array(
+                            'type'        => 'string',
+                            'description' => 'A concise 1–2 sentence summary of the comment content.',
+                        ),
+                        'category_name' => array(
+                            'type'        => 'string',
+                            'description' => 'The most appropriate category from the provided list. Leave empty if none match.',
+                        ),
+                    ),
+                    'required' => array( 'member_name', 'comment_summary' ),
+                ),
+            ),
+        );
     }
 
     private static function tool_definition() {
