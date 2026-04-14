@@ -250,6 +250,9 @@ WP Admin → Users → Edit User → *InPursuit WhatsApp Bot* section → enter 
 | `/members` | List 10 members with ID; filtered to user's assigned groups if set |
 | `/member <name>` | Search for a member |
 | `/status <name>` | Member follow-up status |
+| `/comment <name> \| <text>` | Add a plain comment to a member |
+| `/comment <name> \| <text> \| <category>` | Add a comment with a category |
+| `/categories` | List all available comment categories |
 | `/events` | Special dates this month (from `wp_ip_member_dates`) |
 | `/attendance <event>` | Event attendance |
 | `/followup` | Members needing follow-up |
@@ -357,6 +360,48 @@ Works without an OpenAI API key. Added to `INPURSUIT_WA_AI_Router::keyword_route
 | `member <name>` / `find <name>` / `search <name>` / `look up <name>` | `/member <name>` |
 | `status <name>` | `/status <name>` |
 | `attendance <event>` | `/attendance <event>` |
+
+---
+
+---
+
+## Comment Commands (2026-04-14)
+
+Allows authenticated bot users to add follow-up comments to members directly from WhatsApp, using the parent plugin's existing comment tables.
+
+### New Commands
+
+| Command | Description |
+|---|---|
+| `/comment <name> \| <text>` | Add a plain comment to a member |
+| `/comment <name> \| <text> \| <category>` | Add a comment with a category |
+| `/categories` | List all comment categories with IDs |
+
+### DB Tables Used (parent plugin)
+
+| Table | Purpose |
+|---|---|
+| `wp_ip_comments` | Stores the comment (`comment`, `post_id`, `user_id`) |
+| `wp_ip_comments_category` | Category taxonomy (`term_id`, `name`) |
+| `wp_ip_comments_category_relation` | Links a comment to a category (`term_id`, `comment_id`) |
+
+### Group Filtering
+Member lookup for `/comment` applies the same group filter as `/members` — users can only comment on members in their assigned groups.
+
+### Behaviour
+
+| Scenario | Response |
+|---|---|
+| `/comment John \| Great progress` | ✅ Comment added to *John Smith*, Category: None |
+| `/comment John \| Called today \| Follow-up` | ✅ Comment added, category linked |
+| `/comment John \| Called today \| BadCat` | Comment saved, note: category not found |
+| `/comment John` (no pipe) | ⚠️ Usage hint shown |
+| Member not found / ambiguous | Error or list of matches |
+| `/categories` | Bulleted list of all categories |
+
+### Keyword Fallback
+- `categories` / `comment categories` / `list categories` → `/categories`
+- `comment <name> | text` / `add comment <name> | text` → `/comment`
 
 ---
 

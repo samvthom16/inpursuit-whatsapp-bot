@@ -129,6 +129,11 @@ class INPURSUIT_WA_AI_Router {
             'special dates'    => '/events',
             'this month'       => '/events',
 
+            // /categories
+            'categories'            => '/categories',
+            'comment categories'    => '/categories',
+            'list categories'       => '/categories',
+
             // /help
             'help'             => '/help',
             'commands'         => '/help',
@@ -174,6 +179,18 @@ class INPURSUIT_WA_AI_Router {
             }
         }
 
+        // /comment <name> | <text> | <category>  — "comment John | text" or "add comment John | text"
+        foreach ( array( 'comment ', 'add comment ' ) as $prefix ) {
+            if ( strpos( $lower, $prefix ) === 0 ) {
+                $arg = trim( substr( $text, strlen( $prefix ) ) );
+                if ( $arg ) {
+                    $resolved = '/comment ' . $arg;
+                    INPURSUIT_WA_Logger::info( 'Keyword Router: "' . $text . '" → "' . $resolved . '"' );
+                    return $resolved;
+                }
+            }
+        }
+
         return null;
     }
 
@@ -190,6 +207,8 @@ Available commands:
   /members       — List members (no argument needed)
   /member        — Search for a member by name (arg = member name)
   /status        — Get a member's follow-up status (arg = member name)
+  /comment       — Add a comment to a member (arg = "name | comment text" or "name | comment text | category")
+  /categories    — List available comment categories (no argument)
   /events        — Show birthdays and weddings this month (no argument)
   /attendance    — Get attendance stats for an event (arg = event name)
   /followup      — List members who need follow-up (no argument)
@@ -214,7 +233,7 @@ PROMPT;
                     'properties' => array(
                         'command' => array(
                             'type'        => 'string',
-                            'enum'        => array( '/members', '/member', '/status', '/events', '/attendance', '/followup', '/stats', '/help' ),
+                            'enum'        => array( '/members', '/member', '/status', '/comment', '/categories', '/events', '/attendance', '/followup', '/stats', '/help' ),
                             'description' => 'The command to execute.',
                         ),
                         'arg' => array(

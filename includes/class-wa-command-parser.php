@@ -47,6 +47,27 @@ class INPURSUIT_WA_Command_Parser {
             return INPURSUIT_WA_Query_Handler::get_members_list( $wp_user );
         }
 
+        // categories
+        if ( $lower === '/categories' ) {
+            return INPURSUIT_WA_Query_Handler::get_comment_categories();
+        }
+
+        // /comment <name> | <text> | <category (optional)>
+        if ( strpos( $lower, '/comment ' ) === 0 ) {
+            $raw   = trim( substr( $text, 9 ) );
+            $parts = array_map( 'trim', explode( '|', $raw, 3 ) );
+
+            if ( count( $parts ) < 2 || empty( $parts[1] ) ) {
+                return "⚠️ *Usage:* /comment <name> | <text> | <category (optional)>\n\nExample:\n/comment John Smith | Called him today | Follow-up";
+            }
+
+            $member_name   = $parts[0];
+            $comment_text  = $parts[1];
+            $category_name = $parts[2] ?? '';
+
+            return INPURSUIT_WA_Query_Handler::add_member_comment( $member_name, $comment_text, $category_name, $wp_user );
+        }
+
         // stats
         if ( $lower === '/stats' ) {
             return INPURSUIT_WA_Query_Handler::get_stats( $role );
@@ -87,14 +108,16 @@ class INPURSUIT_WA_Command_Parser {
         return implode( "\n", array(
             "*InPursuit Bot* — Available commands:",
             "",
-            "👥 */members*                — List members (filtered by your groups)",
-            "🔍 */member <name>*          — Search for a member",
-            "📋 */status <name>*          — Member follow-up status",
-            "📅 */events*                 — Special dates this month",
-            "📊 */attendance <event>*     — Event attendance",
-            "🔔 */followup*               — Members needing follow-up",
-            "📈 */stats*                  — Summary statistics",
-            "❓ */help*                   — Show this message",
+            "👥 */members*                      — List members (filtered by your groups)",
+            "🔍 */member <name>*               — Search for a member",
+            "📋 */status <name>*               — Member follow-up status",
+            "💬 */comment <name> | <text>*     — Add a comment to a member",
+            "🏷️ */categories*                 — List comment categories",
+            "📅 */events*                      — Special dates this month",
+            "📊 */attendance <event>*          — Event attendance",
+            "🔔 */followup*                    — Members needing follow-up",
+            "📈 */stats*                       — Summary statistics",
+            "❓ */help*                        — Show this message",
         ) );
     }
 }

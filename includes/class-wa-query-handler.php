@@ -248,6 +248,145 @@ class INPURSUIT_WA_Query_Handler {
     }
 
     // -------------------------------------------------------------------------
+    // Comments
+    // -------------------------------------------------------------------------
+
+    /**
+     * List all available comment categories from wp_ip_comments_category.
+     */
+    public static function get_comment_categories() {
+        $cat_db = INPURSUIT_DB_COMMENTS_CATEGORY::getInstance();
+        $rows   = $cat_db->get_results( $cat_db->getResultsQuery( array() ) );
+
+        if ( empty( $rows ) ) {
+            return "No comment categories found.";
+        }
+
+        $lines = array( "*Comment Categories:*", "" );
+        foreach ( $rows as $row ) {
+            $lines[] = "• [ID: {$row->term_id}] {$row->name}";
+        }
+        $lines[] = "";
+        $lines[] = "_Use the category name in_ */comment <name> | <text> | <category>*";
+
+        return implode( "\n", $lines );
+    }
+
+    /**
+     * Add a comment to a member.
+     * Group filtering is applied — users can only comment on members in their assigned groups.
+     *
+     * @param string       $member_name   Partial or full member name.
+     * @param string       $comment_text  The comment body.
+     * @param string       $category_name Optional category name.
+     * @param WP_User|null $wp_user       The authenticated bot user.
+     */
+    public static function add_member_comment( $member_name, $comment_text, $category_name, $wp_user = null ) {
+        global $wpdb;
+
+        if ( empty( trim( $member_name ) ) ) {
+            return "⚠️ *Usage:* /comment <name> | <text> | <category (optional)>";
+        }
+
+        if ( empty( trim( $comment_text ) ) ) {
+            return "⚠️ Comment text cannot be empty.\n\n*Usage:* /comment <name> | <text> | <category (optional)>";
+        }
+
+        // ── Step 1: Find member (with group filter) ──────────────────────────
+        $like = '%' . $wpdb->esc_like( trim( $member_name ) ) . '%';
+        $args = array(
+            'post_type'      => INPURSUIT_MEMBERS_POST_TYPE,
+            'post_status'    => 'publish',
+            'posts_per_page' => 5,
+            's'              => '',
+        );
+
+        // Use a direct SQL query to support LIKE on post_title with group filter
+        $tax_join  = '';
+        $tax_where = '';
+
+        if ( $wp_user ) {
+            $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );
+            if ( is_array( $group_term_ids ) && ! empty( $group_term_ids ) ) {
+                $ids_int      = array_map( 'intval', $group_term_ids );
+                $placeholders = implode( ',', array_fill( 0, count( $ids_int ), '%d' ) );
+                $tax_join     = "INNER JOIN {$wpdb->term_relationships} tr ON tr.object_id = p.ID
+                                 INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'inpursuit-group'";
+                $tax_where    = $wpdb->prepare( " AND tt.term_id IN ($placeholders)", $ids_int );
+            }
+        }
+
+        $sql = $wpdb->prepare(
+            "SELECT DISTINCT p.ID, p.post_title
+             FROM {$wpdb->posts} p
+             $tax_join
+             WHERE p.post_type = %s AND p.post_status = 'publish' AND p.post_title LIKE %s
+             $tax_where
+             LIMIT 5",
+            INPURSUIT_MEMBERS_POST_TYPE,
+            $like
+        );
+
+        $results = $wpdb->get_results( $sql );
+
+        if ( empty( $results ) ) {
+            return "No member found matching \"" . trim( $member_name ) . "\".";
+        }
+
+        if ( count( $results ) > 1 ) {
+            $lines = array( "Found " . count( $results ) . " members matching \"" . trim( $member_name ) . "\":" );
+            foreach ( $results as $row ) {
+                $lines[] = "• {$row->post_title}";
+            }
+            $lines[] = "\nPlease be more specific.";
+            return implode( "\n", $lines );
+        }
+
+        $member = $results[0];
+
+        // ── Step 2: Insert the comment ────────────────────────────────────────
+        $comment_db = INPURSUIT_DB_COMMENT::getInstance();
+        $comment_id = $comment_db->insert( array(
+            'comment' => sanitize_textarea_field( trim( $comment_text ) ),
+            'post_id' => (int) $member->ID,
+            'user_id' => $wp_user ? (int) $wp_user->ID : 0,
+        ) );
+
+        if ( ! $comment_id ) {
+            return "❌ Failed to save comment. Please try again.";
+        }
+
+        // ── Step 3: Optionally link a category ────────────────────────────────
+        $category_label = 'None';
+        $category_note  = '';
+
+        if ( ! empty( trim( $category_name ) ) ) {
+            $cat_db     = INPURSUIT_DB_COMMENTS_CATEGORY::getInstance();
+            $cat_table  = $cat_db->getTable();
+            $cat_row    = $wpdb->get_row( $wpdb->prepare(
+                "SELECT term_id, name FROM {$cat_table} WHERE LOWER(name) = LOWER(%s) LIMIT 1",
+                trim( $category_name )
+            ) );
+
+            if ( $cat_row ) {
+                INPURSUIT_DB_COMMENTS_CATEGORY_RELATION::getInstance()->insert( array(
+                    'term_id'    => (int) $cat_row->term_id,
+                    'comment_id' => (int) $comment_id,
+                ) );
+                $category_label = $cat_row->name;
+            } else {
+                $category_note = "\n_⚠️ Category \"" . trim( $category_name ) . "\" not found — comment saved without a category. Use /categories to see available options._";
+            }
+        }
+
+        // ── Step 4: Return confirmation ───────────────────────────────────────
+        return implode( "\n", array(
+            "✅ *Comment added to {$member->post_title}*",
+            "Category: {$category_label}",
+        ) ) . $category_note;
+    }
+
+    // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
 
