@@ -261,13 +261,15 @@ Queries `wp_ip_member_dates` directly for birthdays and weddings in the current 
 
 ---
 
-## Commands — Slash Prefix (2026-04-14)
+## Commands — Input Modes (2026-04-14)
 
-All commands now require a `/` prefix (e.g. `/help`, `/stats`). Plain-text commands are no longer accepted.
+Three ways to send commands, in priority order:
 
-- Aliases (`statistics`, `follow up`, `pending`) removed
-- Fallback member-name search removed — unknown input returns the help message
-- `hi` / `hello` greetings still return the help message
+1. **Slash commands** — always work (e.g. `/stats`, `/member John`)
+2. **AI natural language** — works when OpenAI API key is configured (e.g. `"who needs follow up?"`)
+3. **Keyword fallback** — always works, no API key needed (e.g. `stats`, `find John`, `follow up`)
+
+`hi` / `hello` greetings still return the help message.
 
 ---
 
@@ -276,6 +278,85 @@ All commands now require a `/` prefix (e.g. `/help`, `/stats`). Plain-text comma
 ## Cleanup (2026-04-14)
 
 - Removed log preview section from the settings page — logs are now only on the dedicated **WhatsApp Logs** page (WP Admin → InPursuit → WhatsApp Logs)
+
+---
+
+---
+
+## ChatGPT / AI Command Routing (2026-04-14)
+
+### New File: `includes/class-wa-ai-router.php`
+
+Optional AI layer that lets users send **plain English** instead of typed slash commands.
+
+### How It Works
+
+```
+User: "who needs a follow up?"
+  → not a slash command
+  → INPURSUIT_WA_AI_Router::route()
+  → OpenAI gpt-4o-mini (function calling)
+  → returns: { command: "/followup" }
+  → Command Parser handles "/followup" normally
+  → Result sent back to user
+```
+
+### Key Details
+
+| Detail | Value |
+|---|---|
+| Model | `gpt-4o-mini` (cheap, fast) |
+| Method | OpenAI function calling with forced `route_command` tool |
+| HTTP | `wp_remote_post` — no extra dependencies |
+| Timeout | 15 seconds |
+| Fallback | If API key missing or call fails → returns `null` → keyword fallback runs |
+| Loop guard | `$ai_resolved` flag on `Command_Parser::handle()` prevents recursive AI calls |
+
+### Configuration
+
+**WP Admin → InPursuit → WhatsApp Bot** → new **OpenAI API Key** field.
+- Leave empty to disable AI routing (slash commands still work)
+- Get a key at `platform.openai.com/api-keys`
+
+### Example Natural Language Inputs
+
+| User types | Resolved to |
+|---|---|
+| "show stats" | `/stats` |
+| "who needs follow up?" | `/followup` |
+| "look up John Smith" | `/member John Smith` |
+| "show me the members" | `/members` |
+| "attendance for Sunday Service" | `/attendance Sunday Service` |
+| "any birthdays this month?" | `/events` |
+
+### Logging
+- `AI Router: "..." → "..."` — INFO on every successful AI resolution
+- `AI Router: HTTP error` / `OpenAI returned status NNN` — ERROR on failures
+- `Keyword Router: "..." → "..."` — INFO on every keyword match
+
+---
+
+## Keyword Fallback Routing (2026-04-14)
+
+Works without an OpenAI API key. Added to `INPURSUIT_WA_AI_Router::keyword_route()`.
+
+### No-argument keywords
+
+| User types | Resolves to |
+|---|---|
+| `stats` / `statistics` / `summary` / `overview` | `/stats` |
+| `followup` / `follow up` / `follow-up` / `pending` | `/followup` |
+| `members` / `list members` / `all members` / `show members` | `/members` |
+| `events` / `birthdays` / `anniversaries` / `special dates` | `/events` |
+| `help` / `commands` | `/help` |
+
+### Prefix patterns (with argument)
+
+| User types | Resolves to |
+|---|---|
+| `member <name>` / `find <name>` / `search <name>` / `look up <name>` | `/member <name>` |
+| `status <name>` | `/status <name>` |
+| `attendance <event>` | `/attendance <event>` |
 
 ---
 

@@ -69,6 +69,7 @@ class INPURSUIT_WA_Settings {
         $clean['phone_number_id'] = sanitize_text_field( $input['phone_number_id'] ?? '' );
         $clean['access_token']    = sanitize_text_field( $input['access_token'] ?? '' );
         $clean['verify_token']    = sanitize_text_field( $input['verify_token'] ?? '' );
+        $clean['openai_api_key']  = sanitize_text_field( $input['openai_api_key'] ?? '' );
 
         return $clean;
     }
@@ -122,6 +123,17 @@ class INPURSUIT_WA_Settings {
                             <input type="text" id="wa_verify_token" name="<?php echo self::OPTION_KEY; ?>[verify_token]"
                                 value="<?php echo esc_attr( $options['verify_token'] ); ?>" class="regular-text" />
                             <p class="description">A secret string you invent — paste this same value in Meta's webhook configuration.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="wa_openai_api_key">OpenAI API Key</label></th>
+                        <td>
+                            <input type="password" id="wa_openai_api_key" name="<?php echo self::OPTION_KEY; ?>[openai_api_key]"
+                                value="<?php echo esc_attr( $options['openai_api_key'] ); ?>" class="regular-text" />
+                            <p class="description">
+                                Optional. When set, users can send plain English messages (e.g. "show stats", "who needs follow up?") and ChatGPT will map them to the correct command.
+                                Get a key at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>.
+                            </p>
                         </td>
                     </tr>
                     <tr>
@@ -184,6 +196,7 @@ class INPURSUIT_WA_Settings {
             'phone_number_id' => '',
             'access_token'    => '',
             'verify_token'    => '',
+            'openai_api_key'  => '',
         );
         return wp_parse_args( get_option( self::OPTION_KEY, array() ), $defaults );
     }

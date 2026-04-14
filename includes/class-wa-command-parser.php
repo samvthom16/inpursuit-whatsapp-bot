@@ -4,8 +4,9 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Routes incoming text messages to the correct query handler method.
  *
- * Supported commands:
+ * Supported commands (slash prefix, plain English via AI, or plain English via keyword fallback):
  *   /help                         — list available commands
+ *   /members                      — list 10 members (filtered by user groups)
  *   /member <name>                — search for a member by name
  *   /status <name>                — show member status (follow-up status)
  *   /attendance <event name>      — show attendance % for an event
@@ -15,10 +16,26 @@ defined( 'ABSPATH' ) || exit;
  */
 class INPURSUIT_WA_Command_Parser {
 
-    public static function handle( $text, WP_User $wp_user = null ) {
+    /**
+     * @param string       $text
+     * @param WP_User|null $wp_user
+     * @param bool         $ai_resolved  True when called recursively after AI routing (prevents loops).
+     */
+    public static function handle( $text, WP_User $wp_user = null, $ai_resolved = false ) {
         $text  = trim( $text );
         $lower = strtolower( $text );
         $role  = $wp_user ? INPURSUIT_WA_Auth::get_role( $wp_user ) : 'subscriber';
+
+        // Plain-English routing: AI first, keyword fallback if AI is unavailable/fails
+        if ( ! $ai_resolved && strpos( $lower, '/' ) !== 0 && $lower !== 'hi' && $lower !== 'hello' ) {
+            $resolved = INPURSUIT_WA_AI_Router::route( $text );          // OpenAI (needs API key)
+            if ( ! $resolved ) {
+                $resolved = INPURSUIT_WA_AI_Router::keyword_route( $text ); // keyword fallback (always works)
+            }
+            if ( $resolved ) {
+                return self::handle( $resolved, $wp_user, true );
+            }
+        }
 
         // help
         if ( $lower === '/help' || $lower === 'hi' || $lower === 'hello' ) {
