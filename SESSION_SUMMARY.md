@@ -437,9 +437,9 @@ Member lookup for `/comment` applies the same group filter as `/members` — use
 
 ---
 
-## AI Agent Mode — Planned (not yet implemented)
+## AI Agent Mode (2026-04-14)
 
-A full conversational AI agent that lets users ask anything in plain English and have the AI query the database directly, rather than routing to fixed commands.
+A full conversational AI agent that lets users ask anything in plain English. The AI queries the database directly via tools rather than routing to fixed commands.
 
 ### Architecture
 ```
@@ -458,39 +458,38 @@ Result returned to OpenAI → AI composes natural language answer
 WhatsApp reply
 ```
 
-### Files to Create
+### New Files
 | File | Purpose |
 |---|---|
 | `includes/class-wa-db-tools.php` | 9 DB query tools, each enforcing group access; returns raw arrays for AI to process |
 | `includes/class-wa-ai-agent.php` | Agentic loop (max 5 iterations), system prompt, OpenAI tool-use handler |
 
-### DB Tools Planned
-| Tool | Description |
-|---|---|
-| `get_members` | Filter by group, status, gender, location, limit |
-| `get_member_details` | Full profile by name |
-| `get_member_history` | Comment + event history for a member |
-| `get_stats` | Total members/events, breakdown by status & group |
-| `get_followup_members` | Members with pending/follow-up status |
-| `get_events` | Birthdays & anniversaries this month |
-| `get_event_attendance` | Attendance stats for a named event |
-| `add_member_comment` | Save a comment (with optional category) |
-| `get_comment_categories` | List all comment categories |
+### DB Tools
+| Tool | Type | Description |
+|---|---|---|
+| `get_members` | Read | Filter by group, status, gender, location, limit |
+| `get_member_details` | Read | Full profile by name |
+| `get_member_history` | Read | Comment + event history for a member |
+| `get_stats` | Read | Total members/events, breakdown by status & group |
+| `get_followup_members` | Read | Members with pending/follow-up status |
+| `get_events` | Read | Birthdays & anniversaries this month |
+| `get_event_attendance` | Read | Attendance stats for a named event |
+| `add_member_comment` | **Write** | Save a comment (with optional category) |
+| `get_comment_categories` | Read | List all comment categories |
 
-### Settings Change Needed
-- Add **AI Agent Mode** toggle to WP Admin → InPursuit → WhatsApp Bot
-- When ON: plain-English messages go through the agent
+### Settings
+- **AI Agent Mode** toggle added to WP Admin → InPursuit → WhatsApp Bot
+- When ON: plain-English messages go through the agent; keyword fallback still runs if agent fails
 - When OFF: existing AI router + keyword fallback used (current behaviour)
 
-### Group Safety
-Group access enforced in PHP inside each tool — AI cannot bypass it even if it tries.
+### Group Safety & Write Restriction
+- Group access enforced in PHP inside each tool — AI cannot bypass it
+- `get_stats`: `total_members` and `by_status` counts scoped to user's groups when restricted
+- System prompt explicitly instructs the agent that `add_member_comment` is the **only** permitted write operation
+- All member retrieval is scoped to the user's permitted groups
 
-### Example Queries That Would Work
-- *"How many members are in the Youth group?"*
-- *"Who hasn't attended in 3 months?"*
-- *"Show me all female members in the Connect group"*
-- *"Which event had the best attendance this year?"*
-- *"List members with no comments recorded"*
+### Help Message
+- When AI Agent Mode is ON, unknown messages / greetings / `/help` return a plain-English description with examples instead of slash commands
 
 ---
 
@@ -501,5 +500,4 @@ Group access enforced in PHP inside each tool — AI cannot bypass it even if it
 - [ ] Deploy plugin to live WordPress server
 - [ ] Test webhook verification with Meta dashboard
 - [ ] Test all bot commands end-to-end
-- [ ] **Build AI Agent Mode** (see planned section above)
 - [ ] Consider adding conversation state (e.g. multi-step member lookup)
