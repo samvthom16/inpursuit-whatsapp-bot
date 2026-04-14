@@ -55,9 +55,11 @@ class INPURSUIT_WA_Command_Parser {
             }
         }
 
-        // help
+        // help / greeting
         if ( $lower === '/help' || $lower === 'hi' || $lower === 'hello' ) {
-            return self::help_message();
+            return INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1'
+                ? self::agent_help_message()
+                : self::help_message();
         }
 
         // members list
@@ -119,7 +121,38 @@ class INPURSUIT_WA_Command_Parser {
             return INPURSUIT_WA_Query_Handler::get_member( $name, $role );
         }
 
-        return self::help_message();
+        return INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1'
+            ? self::agent_help_message()
+            : self::help_message();
+    }
+
+    private static function agent_help_message() {
+        return implode( "\n", array(
+            "*Hi! I'm the InPursuit assistant.* Just ask me anything in plain English — no commands needed.",
+            "",
+            "Here are some things you can ask:",
+            "",
+            "👥 *Members*",
+            "• \"Show me the members in the Youth group\"",
+            "• \"List all female members\"",
+            "• \"Tell me about John Smith\"",
+            "",
+            "🔔 *Follow-up*",
+            "• \"Who needs a follow-up?\"",
+            "• \"Which members are pending?\"",
+            "",
+            "📅 *Special Dates*",
+            "• \"Any birthdays this month?\"",
+            "• \"Show me anniversaries coming up\"",
+            "",
+            "📊 *Attendance & Stats*",
+            "• \"What was the attendance for Sunday Service?\"",
+            "• \"Give me an overview of the church\"",
+            "",
+            "💬 *Comments*",
+            "• \"Add a note for Sarah — she called today asking for prayer\"",
+            "• \"Log a follow-up comment for Peter\"",
+        ) );
     }
 
     private static function help_message() {
