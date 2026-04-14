@@ -345,7 +345,7 @@ class INPURSUIT_WA_DB_Tools {
             }
             $result[] = array(
                 'member'     => $row->member_name,
-                'event_type' => $row->event_type,
+                'event_type' => ( stripos( $row->event_type, 'birth' ) !== false ) ? 'Birthday' : 'Anniversary',
                 'date'       => date( 'd M', strtotime( $row->event_date ) ),
             );
         }
