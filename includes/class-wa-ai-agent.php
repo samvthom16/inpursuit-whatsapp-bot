@@ -313,7 +313,7 @@ class INPURSUIT_WA_AI_Agent {
                 'type'     => 'function',
                 'function' => array(
                     'name'        => 'get_events',
-                    'description' => 'Get birthdays and wedding anniversaries remaining this month.',
+                    'description' => 'Get all special dates (birthdays and anniversaries) remaining this month. All non-birthday events are returned with event_type "Anniversary" regardless of how they are stored. Use this tool for any question about birthdays, anniversaries, wedding anniversaries, or special dates.',
                     'parameters'  => array(
                         'type'       => 'object',
                         'properties' => new stdClass(),
