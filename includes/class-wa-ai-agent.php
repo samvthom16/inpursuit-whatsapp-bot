@@ -186,8 +186,12 @@ class INPURSUIT_WA_AI_Agent {
             . "If you do not have enough information to call a tool accurately — for example, the user said \"tell me about him\" "
             . "but no name has been mentioned, or \"what was the attendance?\" without specifying an event — ask a short, focused question "
             . "to get the missing detail. Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence.\n\n"
-            . "IMPORTANT: Before calling add_member_comment, always call get_comment_categories first. "
-            . "Use the exact category name from that list that best fits the context. Never invent a category name.";
+            . "IMPORTANT: Before calling add_member_comment, you must have all three of the following confirmed:\n"
+            . "1. The member's name\n"
+            . "2. The comment category (call get_comment_categories to get the list, then pick the best match)\n"
+            . "3. The note text\n"
+            . "If any of these are missing or unclear, ask the user for the missing detail before proceeding. "
+            . "Ask for one missing piece at a time. Never invent a category name — always pick from the list returned by get_comment_categories.";
 
         if ( $wp_user ) {
             $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );
