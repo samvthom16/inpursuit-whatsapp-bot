@@ -25,6 +25,11 @@ class INPURSUIT_WA_Command_Parser {
             return self::help_message();
         }
 
+        // members list
+        if ( $lower === '/members' ) {
+            return INPURSUIT_WA_Query_Handler::get_members_list( $wp_user );
+        }
+
         // stats
         if ( $lower === '/stats' ) {
             return INPURSUIT_WA_Query_Handler::get_stats( $role );
@@ -65,6 +70,7 @@ class INPURSUIT_WA_Command_Parser {
         return implode( "\n", array(
             "*InPursuit Bot* — Available commands:",
             "",
+            "👥 */members*                — List members (filtered by your groups)",
             "🔍 */member <name>*          — Search for a member",
             "📋 */status <name>*          — Member follow-up status",
             "📅 */events*                 — Special dates this month",

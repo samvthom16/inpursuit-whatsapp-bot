@@ -141,6 +141,68 @@ class INPURSUIT_WA_Query_Handler {
     }
 
     /**
+     * List up to 10 members with their member ID.
+     * If the WP user has group(s) assigned (via inpursuit-group user meta),
+     * only members in those groups are returned.
+     *
+     * @param WP_User|null $wp_user
+     */
+    public static function get_members_list( $wp_user = null ) {
+        $args = array(
+            'post_type'      => INPURSUIT_MEMBERS_POST_TYPE,
+            'post_status'    => 'publish',
+            'posts_per_page' => 10,
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        );
+
+        // If the user has group restrictions, apply them
+        if ( $wp_user ) {
+            $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );
+            if ( is_array( $group_term_ids ) && ! empty( $group_term_ids ) ) {
+                $args['tax_query'] = array(
+                    array(
+                        'taxonomy' => 'inpursuit-group',
+                        'field'    => 'id',
+                        'terms'    => array_map( 'intval', $group_term_ids ),
+                    ),
+                );
+            }
+        }
+
+        $members = get_posts( $args );
+
+        if ( empty( $members ) ) {
+            return "No members found.";
+        }
+
+        // Build group label for header
+        $header = "*Members (showing " . count( $members ) . ")*:";
+        if ( $wp_user ) {
+            $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );
+            if ( is_array( $group_term_ids ) && ! empty( $group_term_ids ) ) {
+                $group_names = array();
+                foreach ( $group_term_ids as $tid ) {
+                    $term = get_term( (int) $tid, 'inpursuit-group' );
+                    if ( $term && ! is_wp_error( $term ) ) {
+                        $group_names[] = $term->name;
+                    }
+                }
+                if ( ! empty( $group_names ) ) {
+                    $header = "*Members — " . implode( ', ', $group_names ) . " (showing " . count( $members ) . ")*:";
+                }
+            }
+        }
+
+        $lines = array( $header );
+        foreach ( $members as $m ) {
+            $lines[] = "• [ID: {$m->ID}] {$m->post_title}";
+        }
+
+        return implode( "\n", $lines );
+    }
+
+    /**
      * List members in a specific group.
      */
     public static function get_members_by_group( $group_name ) {

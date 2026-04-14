@@ -83,13 +83,11 @@ INPURSUIT_WA_API  ──►  Meta Cloud API  ──►  WhatsApp User
 | Command | Description |
 |---|---|
 | `/help` | List all available commands |
+| `/members` | List 10 members with ID; filtered to user's assigned groups if set |
 | `/member <name>` | Full member profile (status, group, age, last seen, etc.) |
 | `/status <name>` | Member follow-up status + last seen event |
-| `/members <group>` | List all members in a group |
-| `/events` | 5 most recent events |
-| `/event <name>` | Event detail + attendance stats |
+| `/events` | Special dates this month (birthdays & weddings) |
 | `/attendance <event>` | Attendance count and percentage for an event |
-| `/birthday` | Birthdays and anniversaries in the next 30 days |
 | `/followup` | Members with pending/follow-up status |
 | `/stats` | Summary: total members, events, breakdown by status & group |
 
@@ -249,6 +247,7 @@ WP Admin → Users → Edit User → *InPursuit WhatsApp Bot* section → enter 
 ### Current Commands
 | Command | Description |
 |---|---|
+| `/members` | List 10 members with ID; filtered to user's assigned groups if set |
 | `/member <name>` | Search for a member |
 | `/status <name>` | Member follow-up status |
 | `/events` | Special dates this month (from `wp_ip_member_dates`) |
