@@ -25,12 +25,20 @@ class INPURSUIT_WA_Settings {
 
     public function register_menu() {
         add_submenu_page(
-            'inpursuit',                        // parent slug (InPursuit main menu)
+            'inpursuit',
             'WhatsApp Bot',
             'WhatsApp Bot',
             'manage_options',
             'inpursuit-whatsapp',
             array( $this, 'render_page' )
+        );
+        add_submenu_page(
+            'inpursuit',
+            'WhatsApp Logs',
+            'WhatsApp Logs',
+            'manage_options',
+            'inpursuit-whatsapp-logs',
+            array( $this, 'render_logs_page' )
         );
     }
 
@@ -42,7 +50,7 @@ class INPURSUIT_WA_Settings {
         ) {
             INPURSUIT_WA_Logger::clear();
             INPURSUIT_WA_Logger::info( 'Log cleared by admin.' );
-            wp_safe_redirect( add_query_arg( 'logs_cleared', '1', wp_get_referer() ) );
+            wp_safe_redirect( add_query_arg( array( 'page' => 'inpursuit-whatsapp-logs', 'logs_cleared' => '1' ), admin_url( 'admin.php' ) ) );
             exit;
         }
     }
@@ -132,12 +140,15 @@ class INPURSUIT_WA_Settings {
                 <?php submit_button(); ?>
             </form>
 
-            <hr style="margin: 32px 0;" />
+        </div>
+        <?php
+    }
 
-            <!-- ================================================================
-                 Webhook Logs
-                 ================================================================ -->
-            <h2>Webhook Logs</h2>
+    public function render_logs_page() {
+        $log_content = INPURSUIT_WA_Logger::get_recent( 150 );
+        ?>
+        <div class="wrap">
+            <h1>InPursuit — WhatsApp Webhook Logs</h1>
 
             <?php if ( isset( $_GET['logs_cleared'] ) ) : ?>
                 <div class="notice notice-success is-dismissible"><p>Logs cleared.</p></div>
@@ -147,12 +158,10 @@ class INPURSUIT_WA_Settings {
                 Last 150 entries &mdash; log file: <code><?php echo esc_html( INPURSUIT_WA_Logger::get_log_path() ?: 'not yet created' ); ?></code>
             </p>
 
-            <?php $log_content = INPURSUIT_WA_Logger::get_recent( 150 ); ?>
-
             <?php if ( $log_content === '' ) : ?>
                 <p style="color:#888;font-style:italic;">No log entries yet. Trigger a webhook event to see output here.</p>
             <?php else : ?>
-                <textarea readonly rows="20" style="width:100%;font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;padding:12px;border:1px solid #444;border-radius:4px;resize:vertical;"><?php echo esc_textarea( $log_content ); ?></textarea>
+                <textarea readonly rows="30" style="width:100%;font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;padding:12px;border:1px solid #444;border-radius:4px;resize:vertical;"><?php echo esc_textarea( $log_content ); ?></textarea>
             <?php endif; ?>
 
             <form method="post" style="margin-top:8px;">
@@ -160,8 +169,14 @@ class INPURSUIT_WA_Settings {
                 <input type="hidden" name="inpursuit_wa_clear_logs" value="1" />
                 <?php submit_button( 'Clear Logs', 'delete', 'submit', false ); ?>
             </form>
-
         </div>
+        <script>
+            // Scroll the log textarea to the bottom so newest entries are visible
+            (function() {
+                var ta = document.querySelector('.wrap textarea[readonly]');
+                if ( ta ) { ta.scrollTop = ta.scrollHeight; }
+            })();
+        </script>
         <?php
     }
 
