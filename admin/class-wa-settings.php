@@ -147,12 +147,12 @@ class INPURSUIT_WA_Settings {
                    style="font-size:13px;font-weight:normal;margin-left:12px;">View all logs &rarr;</a>
             </h2>
 
-            <?php $log_preview = INPURSUIT_WA_Logger::get_recent( 10 ); ?>
+            <?php $log_preview = INPURSUIT_WA_Logger::get_recent( 50 ); ?>
 
             <?php if ( $log_preview === '' ) : ?>
                 <p style="color:#888;font-style:italic;">No log entries yet.</p>
             <?php else : ?>
-                <textarea readonly rows="10" style="width:100%;font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;padding:12px;border:1px solid #444;border-radius:4px;resize:none;"><?php echo esc_textarea( $log_preview ); ?></textarea>
+                <textarea readonly rows="20" style="width:100%;font-family:monospace;font-size:12px;background:#1e1e1e;color:#d4d4d4;padding:12px;border:1px solid #444;border-radius:4px;resize:none;"><?php echo esc_textarea( $log_preview ); ?></textarea>
                 <script>
                     (function() {
                         var previews = document.querySelectorAll('.wrap textarea[readonly]');
