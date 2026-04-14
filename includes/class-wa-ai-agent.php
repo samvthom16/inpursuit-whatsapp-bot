@@ -35,6 +35,8 @@ class INPURSUIT_WA_AI_Agent {
             array( array( 'role' => 'user', 'content' => $text ) )
         );
 
+        $comment_added = false;
+
         for ( $step = 0; $step < self::MAX_STEPS; $step++ ) {
             $response = wp_remote_post( self::API_URL, array(
                 'headers' => array(
@@ -75,7 +77,13 @@ class INPURSUIT_WA_AI_Agent {
                 INPURSUIT_WA_Logger::info( 'AI Agent: resolved in ' . ( $step + 1 ) . ' step(s) for: "' . $text . '"' );
                 $history[] = array( 'role' => 'user',      'content' => $text );
                 $history[] = array( 'role' => 'assistant', 'content' => $message['content'] );
-                self::save_session( $phone, $history );
+
+                if ( $comment_added ) {
+                    self::clear_session( $phone );
+                } else {
+                    self::save_session( $phone, $history );
+                }
+
                 return $message['content'];
             }
 
@@ -91,6 +99,10 @@ class INPURSUIT_WA_AI_Agent {
                     INPURSUIT_WA_Logger::info( 'AI Agent: calling tool "' . $fn_name . '"' );
 
                     $result = self::dispatch_tool( $fn_name, (array) $fn_args, $wp_user );
+
+                    if ( $fn_name === 'add_member_comment' && ! empty( $result['success'] ) ) {
+                        $comment_added = true;
+                    }
 
                     $messages[] = array(
                         'role'         => 'tool',
@@ -130,6 +142,12 @@ class INPURSUIT_WA_AI_Agent {
      * Capped at the last 20 entries (10 user+assistant pairs) to keep transient size bounded.
      * TTL is reset to 5 minutes from now on every save.
      */
+    private static function clear_session( $phone ) {
+        if ( ! empty( $phone ) ) {
+            delete_transient( 'inpursuit_wa_sess_' . md5( $phone ) );
+        }
+    }
+
     private static function save_session( $phone, $history ) {
         if ( empty( $phone ) ) {
             return;
