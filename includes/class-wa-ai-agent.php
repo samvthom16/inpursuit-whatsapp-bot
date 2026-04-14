@@ -59,7 +59,8 @@ class INPURSUIT_WA_AI_Agent {
             $body   = json_decode( wp_remote_retrieve_body( $response ), true );
 
             if ( $status !== 200 || empty( $body ) ) {
-                INPURSUIT_WA_Logger::error( 'AI Agent: OpenAI returned status ' . $status );
+                $oai_error = isset( $body['error']['message'] ) ? $body['error']['message'] : wp_remote_retrieve_body( $response );
+                INPURSUIT_WA_Logger::error( 'AI Agent: OpenAI returned status ' . $status . ' — ' . $oai_error );
                 return null;
             }
 
@@ -267,7 +268,7 @@ class INPURSUIT_WA_AI_Agent {
                     'description' => 'Get overall statistics: total members, total events, breakdown by status and group.',
                     'parameters'  => array(
                         'type'       => 'object',
-                        'properties' => array(),
+                        'properties' => new stdClass(),
                         'required'   => array(),
                     ),
                 ),
@@ -279,7 +280,7 @@ class INPURSUIT_WA_AI_Agent {
                     'description' => 'Get the list of members who need follow-up (pending or inactive status).',
                     'parameters'  => array(
                         'type'       => 'object',
-                        'properties' => array(),
+                        'properties' => new stdClass(),
                         'required'   => array(),
                     ),
                 ),
@@ -291,7 +292,7 @@ class INPURSUIT_WA_AI_Agent {
                     'description' => 'Get birthdays and wedding anniversaries remaining this month.',
                     'parameters'  => array(
                         'type'       => 'object',
-                        'properties' => array(),
+                        'properties' => new stdClass(),
                         'required'   => array(),
                     ),
                 ),
@@ -333,7 +334,7 @@ class INPURSUIT_WA_AI_Agent {
                     'description' => 'Get all available comment categories.',
                     'parameters'  => array(
                         'type'       => 'object',
-                        'properties' => array(),
+                        'properties' => new stdClass(),
                         'required'   => array(),
                     ),
                 ),
