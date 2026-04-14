@@ -1,0 +1,302 @@
+<?php
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * AI Agent Mode — full conversational agent using OpenAI tool calling.
+ * The AI can call DB query tools directly to answer arbitrary plain-English questions.
+ * Group access is always enforced in PHP inside each tool — the AI cannot bypass it.
+ */
+class INPURSUIT_WA_AI_Agent {
+
+    const API_URL   = 'https://api.openai.com/v1/chat/completions';
+    const MODEL     = 'gpt-4o-mini';
+    const MAX_STEPS = 5;
+
+    /**
+     * Handle a plain-English message.
+     * Returns a formatted string reply, or null if the API key is not configured or the call fails.
+     *
+     * @param  string       $text
+     * @param  WP_User|null $wp_user
+     * @return string|null
+     */
+    public static function handle( $text, WP_User $wp_user = null ) {
+        $api_key = INPURSUIT_WA_Settings::get( 'openai_api_key' );
+        if ( empty( $api_key ) ) {
+            return null;
+        }
+
+        $messages = array(
+            array( 'role' => 'system', 'content' => self::system_prompt( $wp_user ) ),
+            array( 'role' => 'user',   'content' => $text ),
+        );
+
+        for ( $step = 0; $step < self::MAX_STEPS; $step++ ) {
+            $response = wp_remote_post( self::API_URL, array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $api_key,
+                    'Content-Type'  => 'application/json',
+                ),
+                'body'    => wp_json_encode( array(
+                    'model'       => self::MODEL,
+                    'messages'    => $messages,
+                    'tools'       => self::tool_definitions(),
+                    'temperature' => 0.2,
+                ) ),
+                'timeout' => 20,
+            ) );
+
+            if ( is_wp_error( $response ) ) {
+                INPURSUIT_WA_Logger::error( 'AI Agent: HTTP error — ' . $response->get_error_message() );
+                return null;
+            }
+
+            $status = wp_remote_retrieve_response_code( $response );
+            $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+            if ( $status !== 200 || empty( $body ) ) {
+                INPURSUIT_WA_Logger::error( 'AI Agent: OpenAI returned status ' . $status );
+                return null;
+            }
+
+            $message = $body['choices'][0]['message'] ?? null;
+            if ( ! $message ) {
+                INPURSUIT_WA_Logger::error( 'AI Agent: No message in response.' );
+                return null;
+            }
+
+            // Text reply — done
+            if ( ! empty( $message['content'] ) && empty( $message['tool_calls'] ) ) {
+                INPURSUIT_WA_Logger::info( 'AI Agent: resolved in ' . ( $step + 1 ) . ' step(s) for: "' . $text . '"' );
+                return $message['content'];
+            }
+
+            // Tool calls — execute and continue loop
+            if ( ! empty( $message['tool_calls'] ) ) {
+                $messages[] = $message;
+
+                foreach ( $message['tool_calls'] as $tc ) {
+                    $fn_name = $tc['function']['name'] ?? '';
+                    $fn_args = json_decode( $tc['function']['arguments'] ?? '{}', true );
+                    $tool_id = $tc['id'] ?? '';
+
+                    INPURSUIT_WA_Logger::info( 'AI Agent: calling tool "' . $fn_name . '"' );
+
+                    $result = self::dispatch_tool( $fn_name, (array) $fn_args, $wp_user );
+
+                    $messages[] = array(
+                        'role'         => 'tool',
+                        'tool_call_id' => $tool_id,
+                        'content'      => wp_json_encode( $result ),
+                    );
+                }
+
+                continue;
+            }
+
+            break; // Unexpected response shape
+        }
+
+        INPURSUIT_WA_Logger::warning( 'AI Agent: max steps reached for: "' . $text . '"' );
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tool dispatch
+    // -------------------------------------------------------------------------
+
+    private static function dispatch_tool( $name, $args, $wp_user ) {
+        switch ( $name ) {
+            case 'get_members':
+                return INPURSUIT_WA_DB_Tools::get_members( $args, $wp_user );
+            case 'get_member_details':
+                return INPURSUIT_WA_DB_Tools::get_member_details( $args, $wp_user );
+            case 'get_member_history':
+                return INPURSUIT_WA_DB_Tools::get_member_history( $args, $wp_user );
+            case 'get_stats':
+                return INPURSUIT_WA_DB_Tools::get_stats( $args, $wp_user );
+            case 'get_followup_members':
+                return INPURSUIT_WA_DB_Tools::get_followup_members( $args, $wp_user );
+            case 'get_events':
+                return INPURSUIT_WA_DB_Tools::get_events( $args, $wp_user );
+            case 'get_event_attendance':
+                return INPURSUIT_WA_DB_Tools::get_event_attendance( $args, $wp_user );
+            case 'add_member_comment':
+                return INPURSUIT_WA_DB_Tools::add_member_comment( $args, $wp_user );
+            case 'get_comment_categories':
+                return INPURSUIT_WA_DB_Tools::get_comment_categories( $args, $wp_user );
+            default:
+                return array( 'error' => "Unknown tool: {$name}" );
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // System prompt
+    // -------------------------------------------------------------------------
+
+    private static function system_prompt( $wp_user ) {
+        $prompt = "You are a helpful assistant for InPursuit, a church management system. "
+            . "You help church administrators query member data, events, attendance, and follow-up records via WhatsApp. "
+            . "Use the provided tools to answer questions. Always call a tool before answering data questions — never invent data. "
+            . "Keep replies concise and formatted for WhatsApp (use *bold* for names and headings, bullet points with •). "
+            . "If a query returns no results, say so clearly. "
+            . "Never expose internal IDs, table names, or technical details in your reply.\n\n"
+            . "IMPORTANT: The only write operation permitted is add_member_comment. "
+            . "Never attempt to modify, delete, or create any other data. "
+            . "All member retrieval is automatically scoped to this user's permitted groups — you must never try to access members outside these groups.";
+
+        if ( $wp_user ) {
+            $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );
+            if ( is_array( $group_term_ids ) && ! empty( $group_term_ids ) ) {
+                $group_names = array();
+                foreach ( $group_term_ids as $tid ) {
+                    $term = get_term( (int) $tid, 'inpursuit-group' );
+                    if ( $term && ! is_wp_error( $term ) ) {
+                        $group_names[] = $term->name;
+                    }
+                }
+                if ( ! empty( $group_names ) ) {
+                    $prompt .= "\n\nThis user is restricted to the following group(s): " . implode( ', ', $group_names ) . ". "
+                             . "The tools automatically enforce this restriction — you do not need to filter manually.";
+                }
+            } else {
+                $prompt .= "\n\nThis user has access to all groups.";
+            }
+        }
+
+        return $prompt;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tool definitions
+    // -------------------------------------------------------------------------
+
+    private static function tool_definitions() {
+        return array(
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_members',
+                    'description' => 'Get a list of members, optionally filtered by group, status, gender, or location.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'group'    => array( 'type' => 'string', 'description' => 'Filter by group name (e.g. "Youth", "Connect").' ),
+                            'status'   => array( 'type' => 'string', 'description' => 'Filter by status name (e.g. "Active", "Pending").' ),
+                            'gender'   => array( 'type' => 'string', 'description' => 'Filter by gender.' ),
+                            'location' => array( 'type' => 'string', 'description' => 'Filter by location name.' ),
+                            'limit'    => array( 'type' => 'integer', 'description' => 'Max members to return (default 15, max 30).' ),
+                        ),
+                        'required' => array(),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_member_details',
+                    'description' => 'Get the full profile of a single member by name.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'name' => array( 'type' => 'string', 'description' => 'The member\'s name (partial names supported).' ),
+                        ),
+                        'required' => array( 'name' ),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_member_history',
+                    'description' => 'Get recent comments and events attended for a member.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'name' => array( 'type' => 'string', 'description' => 'The member\'s name.' ),
+                        ),
+                        'required' => array( 'name' ),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_stats',
+                    'description' => 'Get overall statistics: total members, total events, breakdown by status and group.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(),
+                        'required'   => array(),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_followup_members',
+                    'description' => 'Get the list of members who need follow-up (pending or inactive status).',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(),
+                        'required'   => array(),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_events',
+                    'description' => 'Get birthdays and wedding anniversaries remaining this month.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(),
+                        'required'   => array(),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_event_attendance',
+                    'description' => 'Get attendance statistics for a specific church event by name.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'event_name' => array( 'type' => 'string', 'description' => 'The name of the event (partial names supported).' ),
+                        ),
+                        'required' => array( 'event_name' ),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'add_member_comment',
+                    'description' => 'Save a follow-up comment for a member, with an optional category.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'member_name'   => array( 'type' => 'string', 'description' => 'The member\'s name.' ),
+                            'comment_text'  => array( 'type' => 'string', 'description' => 'The comment text.' ),
+                            'category_name' => array( 'type' => 'string', 'description' => 'Optional category name.' ),
+                        ),
+                        'required' => array( 'member_name', 'comment_text' ),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_comment_categories',
+                    'description' => 'Get all available comment categories.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(),
+                        'required'   => array(),
+                    ),
+                ),
+            ),
+        );
+    }
+}

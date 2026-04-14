@@ -26,14 +26,32 @@ class INPURSUIT_WA_Command_Parser {
         $lower = strtolower( $text );
         $role  = $wp_user ? INPURSUIT_WA_Auth::get_role( $wp_user ) : 'subscriber';
 
-        // Plain-English routing: AI first, keyword fallback if AI is unavailable/fails
+        // Plain-English routing
         if ( ! $ai_resolved && strpos( $lower, '/' ) !== 0 && $lower !== 'hi' && $lower !== 'hello' ) {
-            $resolved = INPURSUIT_WA_AI_Router::route( $text );          // OpenAI (needs API key)
-            if ( ! $resolved ) {
-                $resolved = INPURSUIT_WA_AI_Router::keyword_route( $text ); // keyword fallback (always works)
+            // AI Agent Mode: conversational agent with direct DB tool access
+            if ( INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1' ) {
+                $reply = INPURSUIT_WA_AI_Agent::handle( $text, $wp_user );
+                if ( $reply ) {
+                    return $reply;
+                }
+                // Fall through to keyword fallback if agent fails
+            } else {
+                // Standard: OpenAI router first, then keyword fallback
+                $resolved = INPURSUIT_WA_AI_Router::route( $text );
+                if ( ! $resolved ) {
+                    $resolved = INPURSUIT_WA_AI_Router::keyword_route( $text );
+                }
+                if ( $resolved ) {
+                    return self::handle( $resolved, $wp_user, true );
+                }
             }
-            if ( $resolved ) {
-                return self::handle( $resolved, $wp_user, true );
+
+            // Keyword fallback always runs if nothing else matched
+            if ( INPURSUIT_WA_Settings::get( 'ai_agent_mode' ) === '1' ) {
+                $resolved = INPURSUIT_WA_AI_Router::keyword_route( $text );
+                if ( $resolved ) {
+                    return self::handle( $resolved, $wp_user, true );
+                }
             }
         }
 

@@ -70,6 +70,7 @@ class INPURSUIT_WA_Settings {
         $clean['access_token']    = sanitize_text_field( $input['access_token'] ?? '' );
         $clean['verify_token']    = sanitize_text_field( $input['verify_token'] ?? '' );
         $clean['openai_api_key']  = sanitize_text_field( $input['openai_api_key'] ?? '' );
+        $clean['ai_agent_mode']   = ! empty( $input['ai_agent_mode'] ) ? '1' : '0';
 
         return $clean;
     }
@@ -137,6 +138,21 @@ class INPURSUIT_WA_Settings {
                         </td>
                     </tr>
                     <tr>
+                        <th><label for="wa_ai_agent_mode">AI Agent Mode</label></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" id="wa_ai_agent_mode" name="<?php echo self::OPTION_KEY; ?>[ai_agent_mode]" value="1"
+                                    <?php checked( $options['ai_agent_mode'], '1' ); ?> />
+                                Enable AI Agent Mode
+                            </label>
+                            <p class="description">
+                                When enabled, plain-English messages are handled by a conversational AI agent that queries the database directly using tools.
+                                When disabled, the existing AI router + keyword fallback is used.
+                                Requires an OpenAI API Key above.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
                         <td colspan="2">
                             <p class="description">
                                 To authorise a user, go to <strong>Users &rarr; Edit User</strong> and set their <strong>WhatsApp Number</strong> in the <em>InPursuit WhatsApp Bot</em> section.
@@ -197,6 +213,7 @@ class INPURSUIT_WA_Settings {
             'access_token'    => '',
             'verify_token'    => '',
             'openai_api_key'  => '',
+            'ai_agent_mode'   => '0',
         );
         return wp_parse_args( get_option( self::OPTION_KEY, array() ), $defaults );
     }

@@ -39,7 +39,9 @@ function inpursuit_wa_init() {
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-auth.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-api.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-query-handler.php';
+    require_once INPURSUIT_WA_DIR . 'includes/class-wa-db-tools.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-ai-router.php';
+    require_once INPURSUIT_WA_DIR . 'includes/class-wa-ai-agent.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-command-parser.php';
     require_once INPURSUIT_WA_DIR . 'includes/class-wa-webhook.php';
     require_once INPURSUIT_WA_DIR . 'admin/class-wa-settings.php';
