@@ -185,7 +185,9 @@ class INPURSUIT_WA_AI_Agent {
             . "All member retrieval is automatically scoped to this user's permitted groups — you must never try to access members outside these groups.\n\n"
             . "If you do not have enough information to call a tool accurately — for example, the user said \"tell me about him\" "
             . "but no name has been mentioned, or \"what was the attendance?\" without specifying an event — ask a short, focused question "
-            . "to get the missing detail. Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence.";
+            . "to get the missing detail. Do not guess. Do not call a tool with an empty or made-up argument. Keep the question to one sentence.\n\n"
+            . "IMPORTANT: Before calling add_member_comment, always call get_comment_categories first. "
+            . "Use the exact category name from that list that best fits the context. Never invent a category name.";
 
         if ( $wp_user ) {
             $group_term_ids = get_user_meta( $wp_user->ID, 'inpursuit-group', true );

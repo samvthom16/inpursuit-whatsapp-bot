@@ -423,10 +423,17 @@ class INPURSUIT_WA_DB_Tools {
         if ( ! empty( $category_name ) ) {
             $cat_db    = INPURSUIT_DB_COMMENTS_CATEGORY::getInstance();
             $cat_table = $cat_db->getTable();
-            $cat_row   = $wpdb->get_row( $wpdb->prepare(
+            $cat_row = $wpdb->get_row( $wpdb->prepare(
                 "SELECT term_id, name FROM {$cat_table} WHERE LOWER(name) = LOWER(%s) LIMIT 1",
                 $category_name
             ) );
+            if ( ! $cat_row ) {
+                $like    = '%' . $wpdb->esc_like( $category_name ) . '%';
+                $cat_row = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT term_id, name FROM {$cat_table} WHERE name LIKE %s LIMIT 1",
+                    $like
+                ) );
+            }
             if ( $cat_row ) {
                 INPURSUIT_DB_COMMENTS_CATEGORY_RELATION::getInstance()->insert( array(
                     'term_id'    => (int) $cat_row->term_id,
