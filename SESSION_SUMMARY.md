@@ -1,5 +1,5 @@
 # Session Summary — InPursuit WhatsApp Bot
-**Last updated:** 2026-04-14
+**Last updated:** 2026-04-28
 
 ---
 
@@ -84,15 +84,16 @@ Meta Cloud API  ──►  WhatsApp User
 
 ## What the Bot Can Do
 
-The agent is scoped to exactly three user functions:
+The agent is scoped to exactly four user functions:
 
 | Function | Description |
 |---|---|
 | **Member lookup** | Full profile — status, group, gender, profession, location, age, last seen event, and last 5 notes |
-| **Special dates** | Birthdays and anniversaries remaining in the current calendar month |
+| **Special dates** | Birthdays and anniversaries coming up in the next 30 days |
+| **Follow-up history** | All recorded notes for a specific member, with dates and categories |
 | **Add a note** | Save a follow-up comment to a member with a category |
 
-The agent politely declines any request outside these three tasks.
+The agent politely declines any request outside these four tasks.
 
 ---
 
@@ -101,12 +102,13 @@ The agent politely declines any request outside these three tasks.
 ### Model
 `gpt-4o-mini` via OpenAI Chat Completions API (tool calling).
 
-### Tools (4)
+### Tools (5)
 
 | Tool | Type | Description |
 |---|---|---|
 | `get_member_details` | Read | Full profile by name + last 5 notes |
-| `get_events` | Read | Birthdays & anniversaries remaining this month |
+| `get_events` | Read | Birthdays & anniversaries in the next 30 days |
+| `get_member_comments` | Read | All follow-up notes for a member, newest first, with dates and categories |
 | `add_member_comment` | **Write** | Save a note/comment with a category |
 | `get_comment_categories` | Read | List all comment categories — called before `add_member_comment` |
 
@@ -241,6 +243,8 @@ File-based logger writing to `wp-content/uploads/inpursuit-wa-logs/webhook.log`.
 | Group access enforced in PHP | AI cannot be prompted to bypass access control |
 | Agent-only mode | No slash commands — plain English only, simpler UX |
 | Session cleared after comment saved | Prevents stale context from affecting the next conversation |
+| DB access via parent plugin classes only | Child plugin never calls `$wpdb` directly — all queries go through `INPURSUIT_DB_*` classes from the parent plugin |
+| Member search via `WP_Query` + `posts_where` filter | No parent class exposes name-based member search; using WordPress's query abstraction keeps it off raw SQL |
 
 ---
 
