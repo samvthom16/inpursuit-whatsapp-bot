@@ -174,7 +174,7 @@ class INPURSUIT_WA_DB_Tools {
         $query = $comment_db->getResultsQuery( array( 'member_id' => $member['id'] ) ) . ' ORDER BY ID DESC';
         $rows  = $comment_db->get_results( $query );
 
-        $comments = array();
+        $lines = array();
         foreach ( $rows as $row ) {
             $term_ids = $relation_db->get_comment_categories( $row->ID );
             $category = 'Uncategorised';
@@ -182,17 +182,14 @@ class INPURSUIT_WA_DB_Tools {
                 $cat_row  = $cat_db->get_row( $term_ids[0] );
                 $category = $cat_row ? $cat_row->name : 'Uncategorised';
             }
-            $comments[] = array(
-                'date'     => date( 'd M Y', strtotime( $row->post_date ) ),
-                'category' => $category,
-                'note'     => $row->text,
-            );
+            $lines[] = '[' . date( 'd M Y', strtotime( $row->post_date ) ) . ' — ' . $category . ']: ' . $row->text;
         }
 
         return array(
-            'member'   => $member['name'],
-            'count'    => count( $comments ),
-            'comments' => $comments,
+            'member'      => $member['name'],
+            'total_notes' => count( $lines ),
+            'notes'       => implode( "\n", $lines ),
+            'instruction' => 'Write one short readable paragraph summarising all the notes above. Do not list or quote the notes individually.',
         );
     }
 
