@@ -171,7 +171,7 @@ class INPURSUIT_WA_DB_Tools {
         $relation_db = INPURSUIT_DB_COMMENTS_CATEGORY_RELATION::getInstance();
         $cat_db      = INPURSUIT_DB_COMMENTS_CATEGORY::getInstance();
 
-        $query = $comment_db->getResultsQuery( array( 'member_id' => $member['id'] ) ) . ' ORDER BY ID DESC LIMIT 10';
+        $query = $comment_db->getResultsQuery( array( 'member_id' => $member['id'] ) ) . ' ORDER BY ID DESC';
         $rows  = $comment_db->get_results( $query );
 
         $comments = array();
