@@ -170,6 +170,8 @@ class INPURSUIT_WA_AI_Agent {
                 return INPURSUIT_WA_DB_Tools::get_events( $args, $wp_user );
             case 'add_member_comment':
                 return INPURSUIT_WA_DB_Tools::add_member_comment( $args, $wp_user );
+            case 'get_member_comments':
+                return INPURSUIT_WA_DB_Tools::get_member_comments( $args, $wp_user );
             case 'get_comment_categories':
                 return INPURSUIT_WA_DB_Tools::get_comment_categories( $args, $wp_user );
             default:
@@ -183,13 +185,13 @@ class INPURSUIT_WA_AI_Agent {
 
     private static function system_prompt( $wp_user ) {
         $prompt = "You are a helpful assistant for InPursuit, a church management system. "
-            . "You help church administrators with three tasks via WhatsApp: "
-            . "looking up member details, checking special dates (birthdays and anniversaries), and adding follow-up notes to members. "
+            . "You help church administrators with four tasks via WhatsApp: "
+            . "looking up member details, checking upcoming special dates (birthdays and anniversaries in the next 30 days), viewing a member's follow-up note history, and adding follow-up notes to members. "
             . "Use the provided tools to answer questions. Always call a tool before answering data questions — never invent data. "
             . "Keep replies concise and formatted for WhatsApp (use *bold* for names and headings, bullet points with •). "
             . "If a query returns no results, say so clearly. "
             . "Never expose internal IDs, table names, or technical details in your reply. "
-            . "If the user asks about something outside these three tasks, politely let them know what you can help with.\n\n"
+            . "If the user asks about something outside these four tasks, politely let them know what you can help with.\n\n"
             . "IMPORTANT: The only write operation permitted is add_member_comment. "
             . "Never attempt to modify, delete, or create any other data. "
             . "All member retrieval is automatically scoped to this user's permitted groups — you must never try to access members outside these groups.\n\n"
@@ -249,7 +251,7 @@ class INPURSUIT_WA_AI_Agent {
                 'type'     => 'function',
                 'function' => array(
                     'name'        => 'get_events',
-                    'description' => 'Get all special dates (birthdays and anniversaries) remaining this month. Use this for any question about birthdays, anniversaries, wedding anniversaries, or special dates.',
+                    'description' => 'Get all upcoming special dates (birthdays and anniversaries) in the next 30 days. Use this for any question about birthdays, anniversaries, wedding anniversaries, or special dates.',
                     'parameters'  => array(
                         'type'       => 'object',
                         'properties' => new stdClass(),
@@ -270,6 +272,20 @@ class INPURSUIT_WA_AI_Agent {
                             'category_name' => array( 'type' => 'string', 'description' => 'Category name from get_comment_categories.' ),
                         ),
                         'required' => array( 'member_name', 'comment_text' ),
+                    ),
+                ),
+            ),
+            array(
+                'type'     => 'function',
+                'function' => array(
+                    'name'        => 'get_member_comments',
+                    'description' => 'Get all follow-up notes and comments recorded for a specific member, with dates and categories. Use this when the user asks to see a member\'s notes, follow-up history, or comment history.',
+                    'parameters'  => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'name' => array( 'type' => 'string', 'description' => 'The member\'s name (partial names supported).' ),
+                        ),
+                        'required' => array( 'name' ),
                     ),
                 ),
             ),
